@@ -83,7 +83,10 @@
       <div class="title">Οπτική Παρακολούθηση</div>
       <div class="subtitle">Δοκιμή κάμερας · ένα «πεντάλ»</div>
     </div>
-    <div class="fps" id="fps">— fps</div>
+    <div style="display:flex;align-items:center;gap:10px;">
+      <button class="btn" id="flipBtn" style="flex:none;display:none;padding:8px 12px;">↺ Κάμερα</button>
+      <div class="fps" id="fps">— fps</div>
+    </div>
   </header>
 
   <div class="stage">
@@ -145,6 +148,29 @@
   let yLow=null,yHigh=null; // βαθμονόμηση: y στο 0% και στο 100%
   let smooth=0;
 
+  const flipBtn=document.getElementById('flipBtn');
+  let currentStream=null, camIndex=0;
+
+  flipBtn.addEventListener('click',async()=>{
+    try{
+      const devs=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind==='videoinput');
+      if(devs.length<2)return;
+      camIndex=(camIndex+1)%devs.length;
+      if(currentStream)currentStream.getTracks().forEach(t=>t.stop());
+      currentStream=await navigator.mediaDevices.getUserMedia({
+        video:{deviceId:{exact:devs[camIndex].deviceId},width:{ideal:640},height:{ideal:480}},audio:false
+      });
+      video.srcObject=currentStream;
+      await video.play();
+      // Νέα κάμερα = νέο κάδρο: μηδενισμός κλειδώματος και βαθμονόμησης
+      tracking=false;target=null;yLow=null;yHigh=null;
+      setLowBtn.disabled=true;setHighBtn.disabled=true;
+      statusEl.innerHTML='Άλλαξε η κάμερα. <b>Άγγιξε ξανά το χρωματιστό σημάδι</b> για να κλειδώσει.';
+    }catch(e){
+      statusEl.innerHTML='Δεν άλλαξε η κάμερα: '+e.name;
+    }
+  });
+
   document.getElementById('startBtn').addEventListener('click',async()=>{
     errMsg.style.display='none';
     if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -153,11 +179,22 @@
       return;
     }
     try{
-      const stream=await navigator.mediaDevices.getUserMedia({
-        video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false
-      });
+      let stream;
+      try{
+        // Απαίτηση πίσω κάμερας
+        stream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:{exact:'environment'},width:{ideal:640},height:{ideal:480}},audio:false
+        });
+      }catch(_){
+        // Αν δεν υπάρχει/αποτύχει, οποιαδήποτε κάμερα
+        stream=await navigator.mediaDevices.getUserMedia({
+          video:{facingMode:'environment',width:{ideal:640},height:{ideal:480}},audio:false
+        });
+      }
+      currentStream=stream;
       video.srcObject=stream;
       await video.play();
+      flipBtn.style.display='';
       camMsg.style.display='none';
       statusEl.innerHTML='Κάμερα ενεργή. <b>Άγγιξε πάνω στο χρωματιστό σημάδι</b> στην εικόνα για να κλειδώσει.';
     }catch(e){
