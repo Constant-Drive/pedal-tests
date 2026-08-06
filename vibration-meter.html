@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Μετρητής Δόνησης — Δοκιμή</title>
+<style>
+  :root{
+    --bg-0:#0c0f14; --bg-1:#141a23; --surface:#1a212d; --surface-2:#222b39;
+    --line:#2c3646; --ink:#eef1f5; --muted:#8a96a8;
+    --amber:#f2a83c; --green:#37d98a; --red:#ff5247;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:radial-gradient(120% 80% at 50% -10%, #1a2330 0%, var(--bg-0) 60%);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    display:flex;flex-direction:column;min-height:100%;overflow-y:auto;user-select:none;
+  }
+  .wrap{flex:1;display:flex;flex-direction:column;max-width:520px;width:100%;margin:0 auto;padding:16px 16px 14px;min-height:0;}
+
+  header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px;}
+  .title{font-size:13px;font-weight:700;letter-spacing:.22em;text-transform:uppercase;}
+  .subtitle{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);}
+  .live{display:flex;align-items:center;gap:6px;font-size:10px;letter-spacing:.18em;color:var(--muted);text-transform:uppercase;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.4s infinite;}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .dot.off{background:var(--muted);box-shadow:none;animation:none;}
+
+  .col{
+    background:linear-gradient(180deg,var(--surface) 0%,#11171f 100%);
+    border:1px solid var(--line);border-radius:18px;padding:16px 16px 18px;
+    display:flex;flex-direction:column;gap:12px;
+  }
+  .col-head{display:flex;align-items:center;justify-content:space-between;}
+  .col-name{font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);}
+  .pct{font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:26px;font-weight:600;}
+
+  .bar{
+    position:relative;height:260px;border-radius:14px;
+    background:repeating-linear-gradient(0deg, transparent 0 27px, rgba(255,255,255,.03) 27px 28px),var(--bg-1);
+    border:1px solid var(--line);overflow:hidden;
+  }
+  .fill{position:absolute;left:0;right:0;bottom:0;height:0%;
+    background:linear-gradient(180deg, var(--red) 0%, var(--amber) 45%, var(--green) 100%);}
+  .fill::before{content:"";position:absolute;left:0;right:0;top:0;height:2px;
+    background:rgba(255,255,255,.85);box-shadow:0 0 10px rgba(255,255,255,.6);}
+  .zone-line{position:absolute;left:0;right:0;height:1px;background:rgba(255,255,255,.25);pointer-events:none;}
+  .zone-line span{position:absolute;right:8px;top:-14px;font-size:9px;color:var(--muted);letter-spacing:.08em;}
+
+  .telltale{
+    height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;gap:8px;
+    font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;
+    background:var(--surface-2);color:var(--muted);border:1px solid var(--line);transition:all .12s;
+  }
+  .telltale.on{background:rgba(242,168,60,.16);color:var(--amber);border-color:var(--amber);box-shadow:0 0 16px rgba(242,168,60,.5);}
+  .telltale .tt-dot{width:8px;height:8px;border-radius:50%;background:currentColor;opacity:.4;}
+  .telltale.on .tt-dot{opacity:1;box-shadow:0 0 8px currentColor;}
+
+  .raw{display:flex;justify-content:space-between;font-size:10.5px;color:var(--muted);font-family:ui-monospace,monospace;}
+
+  .controls{margin-top:14px;display:flex;flex-direction:column;gap:10px;}
+  .btn{
+    appearance:none;border:1px solid var(--line);background:var(--surface);color:var(--ink);
+    font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;
+    padding:13px 10px;border-radius:10px;cursor:pointer;
+  }
+  .btn.primary{background:var(--green);color:#0c0f14;border-color:var(--green);}
+  .btn:active{filter:brightness(.9);}
+  .status{
+    font-size:11.5px;color:var(--muted);line-height:1.5;
+    padding:10px 12px;background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  }
+  .status b{color:var(--ink);}
+  .slider-row{display:flex;align-items:center;gap:10px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+  .slider-row input{flex:1;accent-color:var(--amber);}
+  .slider-row .val{font-family:ui-monospace,monospace;color:var(--ink);min-width:34px;text-align:right;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <div class="title">Μετρητής Δόνησης</div>
+      <div class="subtitle">Ημισύμπλεξη σε ανηφόρα</div>
+    </div>
+    <div class="live"><span class="dot off" id="liveDot"></span><span id="liveTxt">Ανενεργό</span></div>
+  </header>
+
+  <div class="col">
+    <div class="col-head">
+      <span class="col-name">Ένταση κραδασμού</span>
+      <span class="pct" id="pct">0%</span>
+    </div>
+    <div class="bar" id="bar">
+      <div class="zone-line" id="zoneLine"><span id="zoneLbl">όριο</span></div>
+      <div class="fill" id="fill"></div>
+    </div>
+    <div class="telltale" id="tell"><span class="tt-dot"></span><span id="tellTxt">Ήρεμα</span></div>
+    <div class="raw"><span id="rawG">επιτάχυνση: — g</span><span id="hz">— Hz</span></div>
+    <div class="raw" id="debugRow" style="margin-top:2px;">συμβάντα: 0 · κατάσταση: —</div>
+  </div>
+
+  <div class="controls">
+    <button class="btn primary" id="startBtn">Έναρξη μέτρησης</button>
+    <div class="status" id="status">
+      Στερέωσε το κινητό <b>σφιχτά</b> σε σταθερό σημείο (ταμπλό, κολόνα τιμονιού) — όχι στο χέρι, όχι σε μαλακή βάση. Πάτα «Έναρξη» και άφησέ το ακίνητο 2 δευτ. για μηδενισμό.
+    </div>
+    <div class="slider-row">
+      <span>Ευαισθησία</span>
+      <input type="range" id="sens" min="1" max="10" value="5">
+      <span class="val" id="sensVal">5</span>
+    </div>
+    <div class="slider-row">
+      <span>Όριο ζώνης</span>
+      <input type="range" id="thresh" min="10" max="90" value="55">
+      <span class="val" id="threshVal">55%</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const startBtn=document.getElementById('startBtn');
+  const statusEl=document.getElementById('status');
+  const liveDot=document.getElementById('liveDot');
+  const liveTxt=document.getElementById('liveTxt');
+  const fill=document.getElementById('fill');
+  const pctEl=document.getElementById('pct');
+  const rawG=document.getElementById('rawG');
+  const hzEl=document.getElementById('hz');
+  const tell=document.getElementById('tell');
+  const tellTxt=document.getElementById('tellTxt');
+  const zoneLine=document.getElementById('zoneLine');
+  const zoneLbl=document.getElementById('zoneLbl');
+  const sensInput=document.getElementById('sens');
+  const sensVal=document.getElementById('sensVal');
+  const threshInput=document.getElementById('thresh');
+  const threshVal=document.getElementById('threshVal');
+
+  let running=false;
+  let lastX=0,lastY=0,lastZ=0,haveLast=false;
+  let energy=0;          // εξομαλυμένη "ενέργεια" ταλάντωσης
+  let smoothPct=0;
+  let zeroBaseline=0.02; // αυτόματος μηδενισμός θορύβου ηρεμίας
+  let calibSamples=[],calibrating=false;
+  let sampleCount=0,totalEvents=0;
+  let threshold=55;
+  const debugRow=document.getElementById('debugRow');
+  let watchdogTimer=null;
+
+  function updateZoneLine(){
+    threshold=+threshInput.value;
+    threshVal.textContent=threshold+'%';
+    zoneLine.style.bottom=threshold+'%';
+  }
+  threshInput.addEventListener('input',updateZoneLine);
+  sensInput.addEventListener('input',()=>sensVal.textContent=sensInput.value);
+  updateZoneLine();
+
+  function handleMotion(e){
+    totalEvents++;
+    if(watchdogTimer){clearTimeout(watchdogTimer);watchdogTimer=null;}
+
+    const a=e.accelerationIncludingGravity || e.acceleration;
+    if(!a || a.x===null || a.x===undefined){
+      debugRow.textContent='συμβάντα: '+totalEvents+' · κατάσταση: λαμβάνει συμβάντα αλλά χωρίς τιμές επιτάχυνσης (a.x=null) — δοκίμασε άλλη συσκευή/browser';
+      return;
+    }
+    sampleCount++;
+
+    let jerk=0;
+    if(haveLast){
+      const dx=a.x-lastX, dy=a.y-lastY, dz=a.z-lastZ;
+      jerk=Math.sqrt(dx*dx+dy*dy+dz*dz);
+    }
+    lastX=a.x;lastY=a.y;lastZ=a.z;
+
+    if(!haveLast){haveLast=true;return;}
+
+    if(calibrating){
+      calibSamples.push(jerk);
+      debugRow.textContent='συμβάντα: '+totalEvents+' · βαθμονόμηση… ('+calibSamples.length+' δείγματα)';
+      return;
+    }
+
+    const sens=+sensInput.value;
+    const alpha=0.15;
+    energy = energy*(1-alpha) + jerk*alpha;
+    const usable=Math.max(0, energy - zeroBaseline);
+    const scale=Math.max(0.15, 1.6 - (sens*0.11));
+    let p=(usable/scale)*100;
+    p=Math.max(0,Math.min(100,p));
+    smoothPct += (p-smoothPct)*0.25;
+
+    fill.style.height=smoothPct+'%';
+    pctEl.textContent=Math.round(smoothPct)+'%';
+    rawG.textContent='μεταβολή: '+jerk.toFixed(3)+' m/s²';
+    debugRow.textContent='συμβάντα: '+totalEvents+' · ενέργεια: '+energy.toFixed(3)+' · όριο θορύβου: '+zeroBaseline.toFixed(3);
+
+    if(smoothPct>=threshold){
+      tell.classList.add('on');
+      tellTxt.textContent='Έντονος κραδασμός';
+    }else{
+      tell.classList.remove('on');
+      tellTxt.textContent = smoothPct<8 ? 'Ήρεμα' : 'Ελαφρύ τρέμουλο';
+    }
+  }
+
+  function calibrate(){
+    calibrating=true;calibSamples=[];
+    statusEl.innerHTML='<b>Μηδενισμός…</b> κράτα το κινητό ακίνητο.';
+    setTimeout(()=>{
+      calibrating=false;
+      if(calibSamples.length>5){
+        calibSamples.sort((a,b)=>a-b);
+        zeroBaseline=calibSamples[Math.floor(calibSamples.length*0.5)]*1.05;
+      }
+      statusEl.innerHTML='<b>Έτοιμο.</b> Βάλε τη συσκευή στην τελική της θέση και δημιούργησε δόνηση (π.χ. ακούμπησέ την πάνω σε λειτουργούσα μηχανή/πλυντήριο) για να δεις την μπάρα να ανεβαίνει.';
+    },1500);
+  }
+
+  async function start(){
+    if(typeof DeviceMotionEvent!=='undefined' && typeof DeviceMotionEvent.requestPermission==='function'){
+      // iOS: απαιτείται ρητή άδεια μέσα από χειρονομία χρήστη
+      try{
+        const res=await DeviceMotionEvent.requestPermission();
+        if(res!=='granted'){
+          statusEl.innerHTML='Δεν δόθηκε άδεια για αισθητήρες κίνησης. Ρυθμίσεις → Safari → Κίνηση &amp; Προσανατολισμός.';
+          return;
+        }
+      }catch(err){
+        statusEl.innerHTML='Σφάλμα άδειας: '+err.message;
+        return;
+      }
+    }
+    if(!('DeviceMotionEvent' in window)){
+      statusEl.innerHTML='Η συσκευή/browser δεν υποστηρίζει αισθητήρα κίνησης.';
+      return;
+    }
+    window.addEventListener('devicemotion',handleMotion);
+    running=true;
+    liveDot.classList.remove('off');
+    liveTxt.textContent='Ενεργό';
+    startBtn.textContent='Επανα-μηδενισμός';
+
+    watchdogTimer=setTimeout(()=>{
+      statusEl.innerHTML='<b>Δεν λαμβάνονται δεδομένα κίνησης.</b> Πιθανότατα ο Chrome έχει μπλοκαρισμένους τους αισθητήρες κίνησης για αυτή τη σελίδα.<br><br>Έλεγξε: Chrome ⋮ → Ρυθμίσεις → Ρυθμίσεις ιστότοπου → Αισθητήρες κίνησης (Motion sensors) → να είναι επιτρεπτό. Μετά ανανέωσε τη σελίδα.';
+      debugRow.textContent='συμβάντα: 0 · κατάσταση: καμία λήψη devicemotion μετά από 2.5s';
+    },2500);
+
+    calibrate();
+  }
+
+  startBtn.addEventListener('click',()=>{
+    if(!running) start(); else calibrate();
+  });
+
+  setInterval(()=>{
+    hzEl.textContent=sampleCount+' Hz';
+    sampleCount=0;
+  },1000);
+})();
+</script>
+</body>
+</html>
