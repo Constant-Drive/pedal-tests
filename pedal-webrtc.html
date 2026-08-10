@@ -74,7 +74,19 @@
     justify-content:center; padding:8px 0 2px; }
   #studentScreen .gearLabel { font-size:12px; color:var(--muted); letter-spacing:2px; }
   #studentScreen .gearValue { font-size:64px; font-weight:800; line-height:1.05; color:#a9d6ff;
-    text-shadow:0 0 20px rgba(91,155,217,.5); }
+    text-shadow:0 0 20px rgba(91,155,217,.5); transition:color .15s, transform .15s; }
+  #studentScreen .gearValue.pulse { animation:gearPulse .55s ease; }
+  @keyframes gearPulse {
+    0%   { transform:scale(1);    color:#a9d6ff; }
+    25%  { transform:scale(1.35); color:#ffffff; }
+    100% { transform:scale(1);    color:#a9d6ff; }
+  }
+  #studentScreen { position:relative; }
+  #sFlashOverlay { position:absolute; inset:0; background:#a9d6ff; opacity:0;
+    pointer-events:none; z-index:40; }
+  #sFlashOverlay.flash { animation:flashFade .5s ease-out; }
+  @keyframes flashFade { 0% { opacity:.5; } 100% { opacity:0; } }
+  #sSoundBtn { font-size:15px; }
 
   /* ---------- Σφάλμα config ---------- */
   #configWarn { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
@@ -155,10 +167,12 @@ window.FIREBASE_CONFIG = {
 
 <!-- ---------- Οθόνη μαθητή ---------- -->
 <div id="studentScreen" class="screen">
+  <div id="sFlashOverlay"></div>
   <div class="topbar">
     <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
       <span class="statusDot" id="sDot"></span><span id="sStatus">Εκκίνηση…</span></span>
     <span style="display:flex;gap:6px;">
+      <button id="sSoundBtn" onclick="toggleSound()">🔊</button>
       <button onclick="location.reload()">Επανεκκίνηση</button>
       <button onclick="toggleFullscreen()">Πλήρης οθόνη</button>
     </span>
@@ -221,11 +235,73 @@ function setStatus(kind, msg) {
   }
 }
 
+// ---------- Ήχος/φωνή για αλλαγή ταχύτητας (μόνο οθόνη μαθητή) ----------
+let soundOn = localStorage.getItem('pedalGuideSound') !== 'off';
+let audioCtx = null;
+let studentPrevGear = null;
+const GEAR_SPEECH = { 'Ν':'Νεκρά', '1':'Πρώτη', '2':'Δεύτερη', '3':'Τρίτη', '4':'Τέταρτη', '5':'Πέμπτη', 'ΟΠ':'Όπισθεν' };
+
+function updateSoundBtn() {
+  const b = document.getElementById('sSoundBtn');
+  if (b) b.textContent = soundOn ? '🔊' : '🔇';
+}
+window.toggleSound = function() {
+  soundOn = !soundOn;
+  localStorage.setItem('pedalGuideSound', soundOn ? 'on' : 'off');
+  updateSoundBtn();
+};
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playGearChime() {
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  const beep = (freq, start, dur) => {
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, t0 + start);
+    gain.gain.linearRampToValueAtTime(0.35, t0 + start + 0.01);
+    gain.gain.linearRampToValueAtTime(0, t0 + start + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + start); osc.stop(t0 + start + dur + 0.02);
+  };
+  beep(880, 0, 0.12);
+  beep(1175, 0.14, 0.18);
+}
+function speakGear(gear) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(GEAR_SPEECH[gear] || gear);
+    u.lang = 'el-GR'; u.rate = 1;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function flashGearChange() {
+  const overlay = document.getElementById('sFlashOverlay');
+  const digit = document.getElementById('sGearVal');
+  overlay.classList.remove('flash'); void overlay.offsetWidth; overlay.classList.add('flash');
+  digit.classList.remove('pulse'); void digit.offsetWidth; digit.classList.add('pulse');
+  try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
+}
+function announceGearChange(gear) {
+  flashGearChange();
+  if (soundOn) { playGearChime(); speakGear(gear); }
+}
+
 window.startRole = function(r) {
   role = r;
   document.getElementById('roleScreen').classList.remove('active');
   document.getElementById(r === 'teacher' ? 'teacherScreen' : 'studentScreen').classList.add('active');
   requestWakeLock();
+  if (r === 'student') {
+    updateSoundBtn();
+    // Ξεκλείδωμα ήχου/φωνής με αυτή τη χειρονομία αγγίγματος (απαιτείται στο κινητό)
+    ensureAudio();
+    try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+  }
   if (!db) return;
   if (r === 'teacher') { renderTeacher(); startTeacher(); }
   else startStudent();
@@ -379,7 +455,11 @@ function renderStudent(gas, brake, gear) {
   document.getElementById('sGasVal').textContent = Math.round(gas) + '%';
   document.getElementById('sBrakeFill').style.height = brake + '%';
   document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
-  if (gear) document.getElementById('sGearVal').textContent = gear;
+  if (gear) {
+    document.getElementById('sGearVal').textContent = gear;
+    if (studentPrevGear !== null && gear !== studentPrevGear) announceGearChange(gear);
+    studentPrevGear = gear;
+  }
 }
 
 // ---------- Χειρισμός αφής (δάσκαλος) ----------
