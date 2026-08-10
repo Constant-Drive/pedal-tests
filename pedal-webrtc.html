@@ -239,7 +239,7 @@ function setStatus(kind, msg) {
 let soundOn = localStorage.getItem('pedalGuideSound') !== 'off';
 let audioCtx = null;
 let studentPrevGear = null;
-const GEAR_SPEECH = { 'Ν':'Νεκρά', '1':'Πρώτη', '2':'Δεύτερη', '3':'Τρίτη', '4':'Τέταρτη', '5':'Πέμπτη', 'ΟΠ':'Όπισθεν' };
+const GEAR_SPEECH = { 'Ν':'Νεκρά', '1':'Πρώτη ταχύτητα', '2':'Δεύτερη ταχύτητα', '3':'Τρίτη ταχύτητα', '4':'Τέταρτη ταχύτητα', '5':'Πέμπτη ταχύτητα', 'ΟΠ':'Όπισθεν' };
 
 function updateSoundBtn() {
   const b = document.getElementById('sSoundBtn');
@@ -284,7 +284,6 @@ function flashGearChange() {
   const digit = document.getElementById('sGearVal');
   overlay.classList.remove('flash'); void overlay.offsetWidth; overlay.classList.add('flash');
   digit.classList.remove('pulse'); void digit.offsetWidth; digit.classList.add('pulse');
-  try { if (navigator.vibrate) navigator.vibrate([120, 60, 120]); } catch (e) {}
 }
 function announceGearChange(gear) {
   flashGearChange();
