@@ -58,6 +58,24 @@
   #studentScreen .pedalValue { font-size:56px; }
   #hint { text-align:center; color:var(--muted); font-size:12px; padding:6px 14px 10px; flex:0 0 auto; }
 
+  /* ---------- Ταχύτητες ---------- */
+  .gearRow { display:flex; flex-wrap:wrap; gap:8px; padding:10px 14px; flex:0 0 auto;
+    border-top:1px solid var(--line); }
+  .gearBtn { flex:1 1 60px; padding:14px 0; text-align:center; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel); color:var(--text);
+    font-size:17px; font-weight:700; cursor:pointer; }
+  .gearBtn:active { background:#232b34; }
+  .gearBtn.active { background:#22324a; border-color:#5b9bd9; color:#a9d6ff;
+    box-shadow:0 0 14px rgba(91,155,217,.4); }
+  .gearWrap { flex:0 0 auto; }
+  .gearWrapLabel { text-align:center; font-size:11px; color:var(--muted); letter-spacing:1px;
+    padding:8px 0 0; }
+  #studentScreen .gearWrap { display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:8px 0 2px; }
+  #studentScreen .gearLabel { font-size:12px; color:var(--muted); letter-spacing:2px; }
+  #studentScreen .gearValue { font-size:64px; font-weight:800; line-height:1.05; color:#a9d6ff;
+    text-shadow:0 0 20px rgba(91,155,217,.5); }
+
   /* ---------- Σφάλμα config ---------- */
   #configWarn { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
     padding:28px; z-index:50; overflow:auto; font-size:14px; line-height:1.7; }
@@ -123,6 +141,16 @@ window.FIREBASE_CONFIG = {
     </div>
   </div>
   <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
+  <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ</div>
+  <div class="gearRow" id="tGearRow">
+    <button class="gearBtn" data-gear="Ν" onclick="setGear('Ν')">Ν</button>
+    <button class="gearBtn" data-gear="1" onclick="setGear('1')">1</button>
+    <button class="gearBtn" data-gear="2" onclick="setGear('2')">2</button>
+    <button class="gearBtn" data-gear="3" onclick="setGear('3')">3</button>
+    <button class="gearBtn" data-gear="4" onclick="setGear('4')">4</button>
+    <button class="gearBtn" data-gear="5" onclick="setGear('5')">5</button>
+    <button class="gearBtn" data-gear="ΟΠ" onclick="setGear('ΟΠ')">ΟΠ</button>
+  </div>
 </div>
 
 <!-- ---------- Οθόνη μαθητή ---------- -->
@@ -134,6 +162,10 @@ window.FIREBASE_CONFIG = {
       <button onclick="location.reload()">Επανεκκίνηση</button>
       <button onclick="toggleFullscreen()">Πλήρης οθόνη</button>
     </span>
+  </div>
+  <div class="gearWrap">
+    <div class="gearLabel">ΤΑΧΥΤΗΤΑ</div>
+    <div class="gearValue" id="sGearVal">Ν</div>
   </div>
   <div class="barsArea">
     <div class="pedalCol">
@@ -175,7 +207,7 @@ if (!cfg.apiKey || cfg.apiKey === "ΒΑΛΕ_ΕΔΩ") {
 const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
-const state = { gas: 0, brake: 0 };
+const state = { gas: 0, brake: 0, gear: 'Ν' };
 let role = null, pc = null, channel = null;
 
 function setStatus(kind, msg) {
@@ -268,7 +300,7 @@ function startStudent() {
       channel.onmessage = ev => {
         try {
           const v = JSON.parse(ev.data);
-          renderStudent(v.gas || 0, v.brake || 0);
+          renderStudent(v.gas || 0, v.brake || 0, v.gear || 'Ν');
         } catch (err) {}
       };
       channel.onopen = () => setStatus('on', 'Συνδεδεμένο P2P');
@@ -295,7 +327,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, gear: state.gear }));
   }
 }
 function send() {
@@ -306,12 +338,8 @@ function send() {
 // Keepalive: στέλνει την τρέχουσα κατάσταση κάθε 500ms ούτως ή άλλως
 setInterval(() => { if (role === 'teacher') sendNow(); }, 500);
 
-window.setPedal = function(which, val) {
-  const v = Math.round(Math.min(100, Math.max(0, val)));
-  const other = which === 'gas' ? 'brake' : 'gas';
-  // Δεν επιτρέπεται γκάζι και φρένο μαζί: μόλις μπει τιμή στο ένα, το άλλο μηδενίζει
-  if (v > 0) state[other] = 0;
-  state[which] = v;
+window.setGear = function(g) {
+  state.gear = g;
   renderTeacher();
   send();
 };
@@ -330,12 +358,18 @@ function renderTeacher() {
   document.getElementById('tGasTrack').style.pointerEvents = gasLocked ? 'none' : 'auto';
   document.getElementById('tBrakeTrack').style.opacity = brakeLocked ? '0.35' : '1';
   document.getElementById('tBrakeTrack').style.pointerEvents = brakeLocked ? 'none' : 'auto';
+
+  // Highlight επιλεγμένης ταχύτητας
+  document.querySelectorAll('#tGearRow .gearBtn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.gear === state.gear);
+  });
 }
-function renderStudent(gas, brake) {
+function renderStudent(gas, brake, gear) {
   document.getElementById('sGasFill').style.height = gas + '%';
   document.getElementById('sGasVal').textContent = Math.round(gas) + '%';
   document.getElementById('sBrakeFill').style.height = brake + '%';
   document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
+  if (gear) document.getElementById('sGearVal').textContent = gear;
 }
 
 // ---------- Χειρισμός αφής (δάσκαλος) ----------
