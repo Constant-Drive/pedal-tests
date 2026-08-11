@@ -143,13 +143,13 @@ window.FIREBASE_CONFIG = {
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
       <div class="pedalValue" id="tBrakeVal">0%</div>
       <div class="track" id="tBrakeTrack"><div class="ticks"></div><div class="fill brake" id="tBrakeFill"></div></div>
-      <button class="zeroBtn" onclick="setPedal('brake',0)">Μηδέν</button>
+      <button class="zeroBtn" onclick="zeroPedal('brake')">Μηδέν</button>
     </div>
     <div class="pedalCol">
       <div class="pedalLabel gas">ΓΚΑΖΙ</div>
       <div class="pedalValue" id="tGasVal">0%</div>
       <div class="track" id="tGasTrack"><div class="ticks"></div><div class="fill gas" id="tGasFill"></div></div>
-      <button class="zeroBtn" onclick="setPedal('gas',0)">Μηδέν</button>
+      <button class="zeroBtn" onclick="zeroPedal('gas')">Μηδέν</button>
     </div>
   </div>
   <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
@@ -270,12 +270,25 @@ function playGearChime() {
   beep(880, 0, 0.12);
   beep(1175, 0.14, 0.18);
 }
+let greekVoice = null;
+function loadGreekVoice() {
+  try {
+    const voices = speechSynthesis.getVoices();
+    greekVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('el')) || null;
+  } catch (e) {}
+}
+if ('speechSynthesis' in window) {
+  loadGreekVoice();
+  speechSynthesis.onvoiceschanged = loadGreekVoice;
+}
 function speakGear(gear) {
   if (!('speechSynthesis' in window)) return;
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(GEAR_SPEECH[gear] || gear);
-    u.lang = 'el-GR'; u.rate = 1;
+    u.lang = 'el-GR';
+    if (greekVoice) u.voice = greekVoice;
+    u.rate = 1;
     speechSynthesis.speak(u);
   } catch (e) {}
 }
@@ -423,6 +436,27 @@ window.setPedal = function(which, val) {
   send();
 };
 
+// ---------- Ομαλό άφημα πεντάλ (κουμπί "Μηδέν") ----------
+const zeroAnim = { gas: null, brake: null };
+function cancelZeroAnim(which) {
+  if (zeroAnim[which]) { cancelAnimationFrame(zeroAnim[which]); zeroAnim[which] = null; }
+}
+window.zeroPedal = function(which) {
+  cancelZeroAnim(which);
+  const startVal = state[which];
+  if (startVal <= 0) { setPedal(which, 0); return; }
+  const duration = 420;              // ms — ρεαλιστική ταχύτητα αφήματος πεντάλ
+  const startTime = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 2);   // ease-out, πιο αργό προς το τέλος
+    setPedal(which, startVal * (1 - eased));
+    if (t < 1) zeroAnim[which] = requestAnimationFrame(step);
+    else { zeroAnim[which] = null; setPedal(which, 0); }
+  }
+  zeroAnim[which] = requestAnimationFrame(step);
+};
+
 window.setGear = function(g) {
   state.gear = g;
   renderTeacher();
@@ -470,6 +504,7 @@ function attachDrag(trackId, which) {
   };
   track.addEventListener('pointerdown', e => {
     track.setPointerCapture(e.pointerId);
+    cancelZeroAnim(which);
     update(e.clientY);
   });
   track.addEventListener('pointermove', e => {
