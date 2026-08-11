@@ -86,7 +86,7 @@
     pointer-events:none; z-index:40; }
   #sFlashOverlay.flash { animation:flashFade .5s ease-out; }
   @keyframes flashFade { 0% { opacity:.5; } 100% { opacity:0; } }
-  #sSoundBtn { font-size:15px; }
+  #sSoundBtn, #tSoundBtn { font-size:15px; }
 
   /* ---------- Σφάλμα config ---------- */
   #configWarn { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
@@ -136,7 +136,10 @@ window.FIREBASE_CONFIG = {
   <div class="topbar">
     <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
       <span class="statusDot" id="tDot"></span><span id="tStatus">Εκκίνηση…</span></span>
-    <button onclick="location.reload()">Επανεκκίνηση</button>
+    <span style="display:flex;gap:6px;">
+      <button id="tSoundBtn" onclick="toggleTeacherSound()">🔊</button>
+      <button onclick="location.reload()">Επανεκκίνηση</button>
+    </span>
   </div>
   <div class="barsArea">
     <div class="pedalCol">
@@ -221,8 +224,19 @@ if (!cfg.apiKey || cfg.apiKey === "ΒΑΛΕ_ΕΔΩ") {
 const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
-const state = { gas: 0, brake: 0, gear: 'Ν' };
+const state = { gas: 0, brake: 0, gear: 'Ν', alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off') };
 let role = null, pc = null, channel = null;
+
+function updateTeacherSoundBtn() {
+  const b = document.getElementById('tSoundBtn');
+  if (b) b.textContent = state.alertsOn ? '🔊' : '🔇';
+}
+window.toggleTeacherSound = function() {
+  state.alertsOn = !state.alertsOn;
+  localStorage.setItem('pedalGuideTeacherAlerts', state.alertsOn ? 'on' : 'off');
+  updateTeacherSoundBtn();
+  sendNow();   // άμεση αποστολή, χωρίς αναμονή throttle, ώστε ο μαθητής να ενημερωθεί αμέσως
+};
 
 function setStatus(kind, msg) {
   // kind: 'on' | 'wait' | 'off'
@@ -237,6 +251,7 @@ function setStatus(kind, msg) {
 
 // ---------- Ήχος/φωνή για αλλαγή ταχύτητας (μόνο οθόνη μαθητή) ----------
 let soundOn = localStorage.getItem('pedalGuideSound') !== 'off';
+let teacherAlertsOn = true;   // ενημερώνεται από το tablet του δασκάλου, μέσω του καναλιού
 let audioCtx = null;
 let studentPrevGear = null;
 const GEAR_SPEECH = { 'Ν':'Νεκρά', '1':'Πρώτη ταχύτητα', '2':'Δεύτερη ταχύτητα', '3':'Τρίτη ταχύτητα', '4':'Τέταρτη ταχύτητα', '5':'Πέμπτη ταχύτητα', 'ΟΠ':'Όπισθεν' };
@@ -299,8 +314,10 @@ function flashGearChange() {
   digit.classList.remove('pulse'); void digit.offsetWidth; digit.classList.add('pulse');
 }
 function announceGearChange(gear) {
+  if (!(soundOn && teacherAlertsOn)) return;   // ο δάσκαλος ή ο μαθητής έχει σβήσει τις ειδοποιήσεις
   flashGearChange();
-  if (soundOn) { playGearChime(); speakGear(gear); }
+  playGearChime();
+  speakGear(gear);
 }
 
 window.startRole = function(r) {
@@ -314,6 +331,7 @@ window.startRole = function(r) {
     ensureAudio();
     try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
   }
+  if (r === 'teacher') updateTeacherSoundBtn();
   if (!db) return;
   if (r === 'teacher') { renderTeacher(); startTeacher(); }
   else startStudent();
@@ -388,6 +406,7 @@ function startStudent() {
       channel.onmessage = ev => {
         try {
           const v = JSON.parse(ev.data);
+          teacherAlertsOn = v.alertsOn !== false;
           renderStudent(v.gas || 0, v.brake || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -415,7 +434,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, gear: state.gear }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, gear: state.gear, alertsOn: state.alertsOn }));
   }
 }
 function send() {
