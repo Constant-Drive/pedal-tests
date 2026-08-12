@@ -53,23 +53,26 @@
   .fill { position:absolute; left:0; right:0; bottom:0; height:0%; transition:height .06s linear; }
   .fill.brake { background:linear-gradient(to top,var(--brake),#ff7a70); box-shadow:0 0 24px rgba(255,69,58,.45); }
   .fill.gas { background:linear-gradient(to top,var(--gas),#7dff92); box-shadow:0 0 24px rgba(50,215,75,.45); }
-  .fill.clutch { background:rgba(255,255,255,.38); border-top:2px solid rgba(255,255,255,.8);
-    box-shadow: inset 0 2px 6px rgba(255,255,255,.25); }
+  .fill.clutch { background:rgba(255,255,255,.35); border-top:2px solid #22d3ee;
+    box-shadow:0 -2px 8px rgba(34,211,238,.6); }
   .clutchTrackWrap { flex:1; position:relative; min-height:0; }
   .clutchTrackWrap .track { position:absolute; inset:0; flex:none; }
-  .zoneBandPressed  { position:absolute; left:0; right:0; background:linear-gradient(to top,#5a6472,#8b96a5); }
-  .zoneBandBite     { position:absolute; left:0; right:0; background:linear-gradient(to top,#f2b134,#ffd873); }
-  .zoneBandReleased { position:absolute; left:0; right:0; background:linear-gradient(to top,var(--clutch),#cbb6ff); }
+  .zoneBandPressed  { position:absolute; left:0; right:0; background:#6b7785; }
+  .zoneBandBite     { position:absolute; left:0; right:0; background:#f2b134; }
+  .zoneBandReleased { position:absolute; left:0; right:0; background:#a78bfa; }
   .zoneMarker { position:absolute; left:0; right:0; height:2px; background:rgba(255,255,255,.45); }
   .zoneLabel { position:absolute; left:1px; right:1px; transform:translateY(50%);
     display:flex; align-items:center; justify-content:center; text-align:center;
     white-space:normal; line-height:1.15; font-size:8.5px; font-weight:800;
     letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
     pointer-events:none; }
-  .clutchArrow { position:absolute; right:-9px; width:0; height:0; transform:translateY(50%);
+  .clutchArrow { position:absolute; left:-9px; width:0; height:0; transform:translateY(50%);
     border-top:7px solid transparent; border-bottom:7px solid transparent;
-    border-left:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
+    border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
     transition:bottom .05s linear; }
+  .clutchColorRow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 14px; }
+  input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
+    background:none; padding:2px; cursor:pointer; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
@@ -187,6 +190,19 @@ window.FIREBASE_CONFIG = {
       <button class="stepBtn" onpointerdown="adjustClutchZone('high',-5)">−</button>
       <span class="czVal" id="clutchHighVal">70%</span>
       <button class="stepBtn" onpointerdown="adjustClutchZone('high',5)">+</button>
+    </div>
+    <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Πατημένος</span>
+      <input type="color" id="clutchColorPressed" value="#6b7785" oninput="setClutchZoneColor('pressed', this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Ημισύμπλεξη</span>
+      <input type="color" id="clutchColorBite" value="#f2b134" oninput="setClutchZoneColor('bite', this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Ελεύθερος</span>
+      <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
     </div>
   </div>
   <div class="barsArea">
@@ -332,6 +348,35 @@ function updateClutchZoneMarkers(prefix, low, high) {
 }
 addClutchZoneMarkers('t');
 addClutchZoneMarkers('s');
+
+// ---------- Χρώματα ζωνών συμπλέκτη (ρυθμίζονται από τον δάσκαλο) ----------
+function loadClutchColors() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideClutchColors'));
+    if (saved && saved.pressed && saved.bite && saved.released) return saved;
+  } catch (e) {}
+  return { pressed: '#6b7785', bite: '#f2b134', released: '#a78bfa' };
+}
+let CLUTCH_COLORS = loadClutchColors();
+function applyClutchColors(prefix, colors) {
+  const p = document.getElementById(prefix + 'ClutchBandPressed');
+  const b = document.getElementById(prefix + 'ClutchBandBite');
+  const r = document.getElementById(prefix + 'ClutchBandReleased');
+  if (p) p.style.background = colors.pressed;
+  if (b) b.style.background = colors.bite;
+  if (r) r.style.background = colors.released;
+}
+applyClutchColors('t', CLUTCH_COLORS);
+applyClutchColors('s', CLUTCH_COLORS);
+document.getElementById('clutchColorPressed').value = CLUTCH_COLORS.pressed;
+document.getElementById('clutchColorBite').value = CLUTCH_COLORS.bite;
+document.getElementById('clutchColorReleased').value = CLUTCH_COLORS.released;
+window.setClutchZoneColor = function(which, hex) {
+  CLUTCH_COLORS = { ...CLUTCH_COLORS, [which]: hex };
+  localStorage.setItem('pedalGuideClutchColors', JSON.stringify(CLUTCH_COLORS));
+  applyClutchColors('t', CLUTCH_COLORS);
+  sendNow();   // άμεση ενημέρωση μαθητή
+};
 
 // Κουμπιά +/- στο πάνελ ρυθμίσεων του δασκάλου
 window.adjustClutchZone = function(which, delta) {
@@ -585,6 +630,11 @@ function startStudent() {
             CLUTCH_ZONE_LOW = v.clutchZoneLow; CLUTCH_ZONE_HIGH = v.clutchZoneHigh;
             updateClutchZoneMarkers('s', CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
           }
+          if (v.clutchColors && (v.clutchColors.pressed !== CLUTCH_COLORS.pressed ||
+              v.clutchColors.bite !== CLUTCH_COLORS.bite || v.clutchColors.released !== CLUTCH_COLORS.released)) {
+            CLUTCH_COLORS = v.clutchColors;
+            applyClutchColors('s', CLUTCH_COLORS);
+          }
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -612,7 +662,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS }));
   }
 }
 function send() {
