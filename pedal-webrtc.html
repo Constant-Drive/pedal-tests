@@ -88,6 +88,8 @@
   #sFlashOverlay.flash { animation:flashFade .5s ease-out; }
   @keyframes flashFade { 0% { opacity:.5; } 100% { opacity:0; } }
   #sSoundBtn, #tSoundBtn { font-size:15px; }
+  .pedalSettingsPanel { display:none; }
+  .pedalSettingsPanel.open { display:block; }
 
   /* ---------- Σφάλμα config ---------- */
   #configWarn { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
@@ -139,23 +141,32 @@ window.FIREBASE_CONFIG = {
       <span class="statusDot" id="tDot"></span><span id="tStatus">Εκκίνηση…</span></span>
     <span style="display:flex;gap:6px;">
       <button id="tSoundBtn" onclick="toggleTeacherSound()">🔊</button>
+      <button onclick="togglePedalSettings()">⚙️</button>
       <button onclick="location.reload()">Επανεκκίνηση</button>
     </span>
   </div>
-  <div class="barsArea">
-    <div class="pedalCol">
-      <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
-      <div class="pedalValue" id="tClutchVal">0%</div>
-      <div class="track" id="tClutchTrack"><div class="ticks"></div><div class="fill clutch" id="tClutchFill"></div></div>
-      <button class="zeroBtn" onclick="zeroPedal('clutch')">Μηδέν</button>
+  <div class="pedalSettingsPanel" id="tPedalSettingsPanel">
+    <div class="gearWrapLabel" style="padding-top:0;">ΕΜΦΑΝΙΣΗ ΠΕΝΤΑΛ</div>
+    <div class="gearRow" style="border-top:0;">
+      <button class="gearBtn" data-pedal="clutch" onclick="togglePedalVisible('clutch')">Συμπλέκτης</button>
+      <button class="gearBtn" data-pedal="brake" onclick="togglePedalVisible('brake')">Φρένο</button>
+      <button class="gearBtn" data-pedal="gas" onclick="togglePedalVisible('gas')">Γκάζι</button>
     </div>
-    <div class="pedalCol">
+  </div>
+  <div class="barsArea">
+    <div class="pedalCol" id="tClutchCol">
+      <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
+      <div class="pedalValue" id="tClutchVal">100%</div>
+      <div class="track" id="tClutchTrack"><div class="ticks"></div><div class="fill clutch" id="tClutchFill" style="height:100%"></div></div>
+      <button class="zeroBtn" onclick="zeroPedal('clutch', 100)">Ελεύθερος</button>
+    </div>
+    <div class="pedalCol" id="tBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
       <div class="pedalValue" id="tBrakeVal">0%</div>
       <div class="track" id="tBrakeTrack"><div class="ticks"></div><div class="fill brake" id="tBrakeFill"></div></div>
       <button class="zeroBtn" onclick="zeroPedal('brake')">Μηδέν</button>
     </div>
-    <div class="pedalCol">
+    <div class="pedalCol" id="tGasCol">
       <div class="pedalLabel gas">ΓΚΑΖΙ</div>
       <div class="pedalValue" id="tGasVal">0%</div>
       <div class="track" id="tGasTrack"><div class="ticks"></div><div class="fill gas" id="tGasFill"></div></div>
@@ -192,17 +203,17 @@ window.FIREBASE_CONFIG = {
     <div class="gearValue" id="sGearVal">Ν</div>
   </div>
   <div class="barsArea">
-    <div class="pedalCol">
+    <div class="pedalCol" id="sClutchCol">
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
-      <div class="pedalValue" id="sClutchVal">0%</div>
-      <div class="track"><div class="ticks"></div><div class="fill clutch" id="sClutchFill"></div></div>
+      <div class="pedalValue" id="sClutchVal">100%</div>
+      <div class="track"><div class="ticks"></div><div class="fill clutch" id="sClutchFill" style="height:100%"></div></div>
     </div>
-    <div class="pedalCol">
+    <div class="pedalCol" id="sBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
       <div class="pedalValue" id="sBrakeVal">0%</div>
       <div class="track"><div class="ticks"></div><div class="fill brake" id="sBrakeFill"></div></div>
     </div>
-    <div class="pedalCol">
+    <div class="pedalCol" id="sGasCol">
       <div class="pedalLabel gas">ΓΚΑΖΙ</div>
       <div class="pedalValue" id="sGasVal">0%</div>
       <div class="track"><div class="ticks"></div><div class="fill gas" id="sGasFill"></div></div>
@@ -236,8 +247,44 @@ if (!cfg.apiKey || cfg.apiKey === "ΒΑΛΕ_ΕΔΩ") {
 const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
-const state = { gas: 0, brake: 0, clutch: 0, gear: 'Ν', alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off') };
+function loadVisiblePedals() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideVisiblePedals'));
+    if (saved && typeof saved === 'object')
+      return { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false };
+  } catch (e) {}
+  return { gas: true, brake: true, clutch: true };
+}
+const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν',
+  alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off'),
+  visible: loadVisiblePedals() };
 let role = null, pc = null, channel = null;
+
+// ---------- Ποια πεντάλ εμφανίζονται (επιλέγεται από τον δάσκαλο) ----------
+const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch' };
+function applyPedalVisibility(vis, prefix) {
+  Object.keys(PEDAL_COL_ID).forEach(p => {
+    const col = document.getElementById(prefix + PEDAL_COL_ID[p] + 'Col');
+    if (col) col.style.display = vis[p] ? '' : 'none';
+  });
+}
+function updatePedalToggleButtons() {
+  document.querySelectorAll('#tPedalSettingsPanel .gearBtn').forEach(btn => {
+    btn.classList.toggle('active', !!state.visible[btn.dataset.pedal]);
+  });
+}
+window.togglePedalSettings = function() {
+  document.getElementById('tPedalSettingsPanel').classList.toggle('open');
+};
+window.togglePedalVisible = function(which) {
+  const proposed = { ...state.visible, [which]: !state.visible[which] };
+  if (!(proposed.gas || proposed.brake || proposed.clutch)) return;  // πρέπει να μείνει τουλάχιστον ένα ορατό
+  state.visible = proposed;
+  localStorage.setItem('pedalGuideVisiblePedals', JSON.stringify(state.visible));
+  applyPedalVisibility(state.visible, 't');
+  updatePedalToggleButtons();
+  sendNow();   // άμεση ενημέρωση μαθητή
+};
 
 function updateTeacherSoundBtn() {
   const b = document.getElementById('tSoundBtn');
@@ -343,7 +390,7 @@ window.startRole = function(r) {
     ensureAudio();
     try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
   }
-  if (r === 'teacher') updateTeacherSoundBtn();
+  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); }
   if (!db) return;
   if (r === 'teacher') { renderTeacher(); startTeacher(); }
   else startStudent();
@@ -419,6 +466,7 @@ function startStudent() {
         try {
           const v = JSON.parse(ev.data);
           teacherAlertsOn = v.alertsOn !== false;
+          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true }, 's');
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -446,7 +494,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn, visible: state.visible }));
   }
 }
 function send() {
@@ -475,18 +523,19 @@ const zeroAnim = { gas: null, brake: null, clutch: null };
 function cancelZeroAnim(which) {
   if (zeroAnim[which]) { cancelAnimationFrame(zeroAnim[which]); zeroAnim[which] = null; }
 }
-window.zeroPedal = function(which) {
+window.zeroPedal = function(which, target = 0) {
   cancelZeroAnim(which);
   const startVal = state[which];
-  if (startVal <= 0) { setPedal(which, 0); return; }
+  if (startVal === target) { setPedal(which, target); return; }
   const duration = 420;              // ms — ρεαλιστική ταχύτητα αφήματος πεντάλ
   const startTime = performance.now();
+  const delta = target - startVal;
   function step(now) {
     const t = Math.min(1, (now - startTime) / duration);
     const eased = 1 - Math.pow(1 - t, 2);   // ease-out, πιο αργό προς το τέλος
-    setPedal(which, startVal * (1 - eased));
+    setPedal(which, startVal + delta * eased);
     if (t < 1) zeroAnim[which] = requestAnimationFrame(step);
-    else { zeroAnim[which] = null; setPedal(which, 0); }
+    else { zeroAnim[which] = null; setPedal(which, target); }
   }
   zeroAnim[which] = requestAnimationFrame(step);
 };
