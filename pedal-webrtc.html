@@ -53,18 +53,23 @@
   .fill { position:absolute; left:0; right:0; bottom:0; height:0%; transition:height .06s linear; }
   .fill.brake { background:linear-gradient(to top,var(--brake),#ff7a70); box-shadow:0 0 24px rgba(255,69,58,.45); }
   .fill.gas { background:linear-gradient(to top,var(--gas),#7dff92); box-shadow:0 0 24px rgba(50,215,75,.45); }
-  .fill.clutch.zonePressed  { background:linear-gradient(to top,#5a6472,#8b96a5); box-shadow:0 0 20px rgba(90,100,114,.4); }
-  .fill.clutch.zoneBite     { background:linear-gradient(to top,#f2b134,#ffd873); box-shadow:0 0 26px rgba(242,177,52,.5); }
-  .fill.clutch.zoneReleased { background:linear-gradient(to top,var(--clutch),#cbb6ff); box-shadow:0 0 24px rgba(167,139,250,.45); }
-  .zoneBand { position:absolute; left:0; right:0; background:rgba(242,177,52,.16);
-    border-top:1px solid rgba(242,177,52,.4); border-bottom:1px solid rgba(242,177,52,.4); }
-  .zoneMarker { position:absolute; left:0; right:0; height:2px; background:#f2b134;
-    box-shadow:0 0 6px rgba(242,177,52,.7); }
+  .fill.clutch { background:rgba(255,255,255,.38); border-top:2px solid rgba(255,255,255,.8);
+    box-shadow: inset 0 2px 6px rgba(255,255,255,.25); }
+  .clutchTrackWrap { flex:1; position:relative; min-height:0; }
+  .clutchTrackWrap .track { position:absolute; inset:0; flex:none; }
+  .zoneBandPressed  { position:absolute; left:0; right:0; background:linear-gradient(to top,#5a6472,#8b96a5); }
+  .zoneBandBite     { position:absolute; left:0; right:0; background:linear-gradient(to top,#f2b134,#ffd873); }
+  .zoneBandReleased { position:absolute; left:0; right:0; background:linear-gradient(to top,var(--clutch),#cbb6ff); }
+  .zoneMarker { position:absolute; left:0; right:0; height:2px; background:rgba(255,255,255,.45); }
   .zoneLabel { position:absolute; left:1px; right:1px; transform:translateY(50%);
     display:flex; align-items:center; justify-content:center; text-align:center;
     white-space:normal; line-height:1.15; font-size:8.5px; font-weight:800;
     letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
     pointer-events:none; }
+  .clutchArrow { position:absolute; right:-9px; width:0; height:0; transform:translateY(50%);
+    border-top:7px solid transparent; border-bottom:7px solid transparent;
+    border-left:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
+    transition:bottom .05s linear; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
@@ -146,9 +151,9 @@ window.FIREBASE_CONFIG = {
   <h1>Οδηγός Πεντάλ <small style="font-size:12px;color:var(--muted)">P2P</small></h1>
   <p class="sub">1. Άνοιξε hotspot στο κινητό &amp; σύνδεσε το tablet<br>
      2. Πρώτα «Δάσκαλος» στο tablet, μετά «Μαθητής» στο κινητό</p>
-  <button class="roleBtn" onclick="startRole('teacher')">🎛️ Δάσκαλος
+  <button class="roleBtn" onpointerdown="startRole('teacher')">🎛️ Δάσκαλος
     <span>Tablet — εσύ κινείς τις μπάρες</span></button>
-  <button class="roleBtn" onclick="startRole('student')">📱 Μαθητής
+  <button class="roleBtn" onpointerdown="startRole('student')">📱 Μαθητής
     <span>Κινητό μπροστά στον μαθητή — μόνο προβολή</span></button>
 </div>
 
@@ -158,62 +163,65 @@ window.FIREBASE_CONFIG = {
     <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
       <span class="statusDot" id="tDot"></span><span id="tStatus">Εκκίνηση…</span></span>
     <span style="display:flex;gap:6px;">
-      <button id="tSoundBtn" onclick="toggleTeacherSound()">🔊</button>
-      <button onclick="togglePedalSettings()">⚙️</button>
-      <button onclick="location.reload()">Επανεκκίνηση</button>
+      <button id="tSoundBtn" onpointerdown="toggleTeacherSound()">🔊</button>
+      <button onpointerdown="togglePedalSettings()">⚙️</button>
+      <button onpointerdown="location.reload()">Επανεκκίνηση</button>
     </span>
   </div>
   <div class="pedalSettingsPanel" id="tPedalSettingsPanel">
     <div class="gearWrapLabel" style="padding-top:0;">ΕΜΦΑΝΙΣΗ ΠΕΝΤΑΛ</div>
     <div class="gearRow" style="border-top:0;">
-      <button class="gearBtn" data-pedal="clutch" onclick="togglePedalVisible('clutch')">Συμπλέκτης</button>
-      <button class="gearBtn" data-pedal="brake" onclick="togglePedalVisible('brake')">Φρένο</button>
-      <button class="gearBtn" data-pedal="gas" onclick="togglePedalVisible('gas')">Γκάζι</button>
+      <button class="gearBtn" data-pedal="clutch" onpointerdown="togglePedalVisible('clutch')">Συμπλέκτης</button>
+      <button class="gearBtn" data-pedal="brake" onpointerdown="togglePedalVisible('brake')">Φρένο</button>
+      <button class="gearBtn" data-pedal="gas" onpointerdown="togglePedalVisible('gas')">Γκάζι</button>
     </div>
     <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Από</span>
-      <button class="stepBtn" onclick="adjustClutchZone('low',-5)">−</button>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('low',-5)">−</button>
       <span class="czVal" id="clutchLowVal">30%</span>
-      <button class="stepBtn" onclick="adjustClutchZone('low',5)">+</button>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('low',5)">+</button>
     </div>
     <div class="clutchZoneRow">
       <span class="czLabel">Έως</span>
-      <button class="stepBtn" onclick="adjustClutchZone('high',-5)">−</button>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('high',-5)">−</button>
       <span class="czVal" id="clutchHighVal">70%</span>
-      <button class="stepBtn" onclick="adjustClutchZone('high',5)">+</button>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('high',5)">+</button>
     </div>
   </div>
   <div class="barsArea">
     <div class="pedalCol" id="tClutchCol">
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
       <div class="pedalValue" id="tClutchVal">100%</div>
-      <div class="track" id="tClutchTrack"><div class="ticks" id="tClutchTicks"></div><div class="fill clutch zoneReleased" id="tClutchFill" style="height:100%"></div></div>
-      <button class="zeroBtn" onclick="zeroPedal('clutch', 100)">Ελεύθερος</button>
+      <div class="clutchTrackWrap">
+        <div class="track" id="tClutchTrack"><div class="ticks" id="tClutchTicks"></div><div class="fill clutch" id="tClutchFill" style="height:100%"></div></div>
+        <div class="clutchArrow" id="tClutchArrow" style="bottom:100%"></div>
+      </div>
+      <button class="zeroBtn" onpointerdown="zeroPedal('clutch', 100)">Ελεύθερος</button>
     </div>
     <div class="pedalCol" id="tBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
       <div class="pedalValue" id="tBrakeVal">0%</div>
       <div class="track" id="tBrakeTrack"><div class="ticks"></div><div class="fill brake" id="tBrakeFill"></div></div>
-      <button class="zeroBtn" onclick="zeroPedal('brake')">Μηδέν</button>
+      <button class="zeroBtn" onpointerdown="zeroPedal('brake')">Μηδέν</button>
     </div>
     <div class="pedalCol" id="tGasCol">
       <div class="pedalLabel gas">ΓΚΑΖΙ</div>
       <div class="pedalValue" id="tGasVal">0%</div>
       <div class="track" id="tGasTrack"><div class="ticks"></div><div class="fill gas" id="tGasFill"></div></div>
-      <button class="zeroBtn" onclick="zeroPedal('gas')">Μηδέν</button>
+      <button class="zeroBtn" onpointerdown="zeroPedal('gas')">Μηδέν</button>
     </div>
   </div>
   <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
   <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ</div>
   <div class="gearRow" id="tGearRow">
-    <button class="gearBtn" data-gear="Ν" onclick="setGear('Ν')">Ν</button>
-    <button class="gearBtn" data-gear="1" onclick="setGear('1')">1</button>
-    <button class="gearBtn" data-gear="2" onclick="setGear('2')">2</button>
-    <button class="gearBtn" data-gear="3" onclick="setGear('3')">3</button>
-    <button class="gearBtn" data-gear="4" onclick="setGear('4')">4</button>
-    <button class="gearBtn" data-gear="5" onclick="setGear('5')">5</button>
-    <button class="gearBtn" data-gear="ΟΠ" onclick="setGear('ΟΠ')">ΟΠ</button>
+    <button class="gearBtn" data-gear="Ν" onpointerdown="setGear('Ν')">Ν</button>
+    <button class="gearBtn" data-gear="1" onpointerdown="setGear('1')">1</button>
+    <button class="gearBtn" data-gear="2" onpointerdown="setGear('2')">2</button>
+    <button class="gearBtn" data-gear="3" onpointerdown="setGear('3')">3</button>
+    <button class="gearBtn" data-gear="4" onpointerdown="setGear('4')">4</button>
+    <button class="gearBtn" data-gear="5" onpointerdown="setGear('5')">5</button>
+    <button class="gearBtn" data-gear="ΟΠ" onpointerdown="setGear('ΟΠ')">ΟΠ</button>
   </div>
 </div>
 
@@ -224,9 +232,9 @@ window.FIREBASE_CONFIG = {
     <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
       <span class="statusDot" id="sDot"></span><span id="sStatus">Εκκίνηση…</span></span>
     <span style="display:flex;gap:6px;">
-      <button id="sSoundBtn" onclick="toggleSound()">🔊</button>
-      <button onclick="location.reload()">Επανεκκίνηση</button>
-      <button onclick="toggleFullscreen()">Πλήρης οθόνη</button>
+      <button id="sSoundBtn" onpointerdown="toggleSound()">🔊</button>
+      <button onpointerdown="location.reload()">Επανεκκίνηση</button>
+      <button onpointerdown="toggleFullscreen()">Πλήρης οθόνη</button>
     </span>
   </div>
   <div class="gearWrap">
@@ -237,7 +245,10 @@ window.FIREBASE_CONFIG = {
     <div class="pedalCol" id="sClutchCol">
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
       <div class="pedalValue" id="sClutchVal">100%</div>
-      <div class="track"><div class="ticks" id="sClutchTicks"></div><div class="fill clutch zoneReleased" id="sClutchFill" style="height:100%"></div></div>
+      <div class="clutchTrackWrap">
+        <div class="track"><div class="ticks" id="sClutchTicks"></div><div class="fill clutch" id="sClutchFill" style="height:100%"></div></div>
+        <div class="clutchArrow" id="sClutchArrow" style="bottom:100%"></div>
+      </div>
     </div>
     <div class="pedalCol" id="sBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
@@ -281,17 +292,18 @@ function loadClutchZone() {
 }
 let { low: CLUTCH_ZONE_LOW, high: CLUTCH_ZONE_HIGH } = loadClutchZone();
 
-function clutchZoneClass(val) {
-  if (val < CLUTCH_ZONE_LOW) return 'zonePressed';
-  if (val < CLUTCH_ZONE_HIGH) return 'zoneBite';
-  return 'zoneReleased';
-}
 function addClutchZoneMarkers(prefix) {
   const ticks = document.getElementById(prefix + 'ClutchTicks');
   if (!ticks) return;
-  const band = document.createElement('div');
-  band.className = 'zoneBand'; band.id = prefix + 'ClutchZoneBand';
-  ticks.appendChild(band);
+  const pressedBand = document.createElement('div');
+  pressedBand.className = 'zoneBandPressed'; pressedBand.id = prefix + 'ClutchBandPressed';
+  ticks.appendChild(pressedBand);
+  const biteBand = document.createElement('div');
+  biteBand.className = 'zoneBandBite'; biteBand.id = prefix + 'ClutchBandBite';
+  ticks.appendChild(biteBand);
+  const releasedBand = document.createElement('div');
+  releasedBand.className = 'zoneBandReleased'; releasedBand.id = prefix + 'ClutchBandReleased';
+  ticks.appendChild(releasedBand);
   const lowLine = document.createElement('div');
   lowLine.className = 'zoneMarker'; lowLine.id = prefix + 'ClutchMarkerLow';
   ticks.appendChild(lowLine);
@@ -305,11 +317,15 @@ function addClutchZoneMarkers(prefix) {
   updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
 }
 function updateClutchZoneMarkers(prefix, low, high) {
-  const band = document.getElementById(prefix + 'ClutchZoneBand');
+  const pressedBand = document.getElementById(prefix + 'ClutchBandPressed');
+  const biteBand = document.getElementById(prefix + 'ClutchBandBite');
+  const releasedBand = document.getElementById(prefix + 'ClutchBandReleased');
   const lowLine = document.getElementById(prefix + 'ClutchMarkerLow');
   const highLine = document.getElementById(prefix + 'ClutchMarkerHigh');
   const label = document.getElementById(prefix + 'ClutchZoneLabel');
-  if (band) { band.style.bottom = low + '%'; band.style.height = Math.max(0, high - low) + '%'; }
+  if (pressedBand)  { pressedBand.style.bottom = '0%';   pressedBand.style.height = low + '%'; }
+  if (biteBand)     { biteBand.style.bottom = low + '%'; biteBand.style.height = Math.max(0, high - low) + '%'; }
+  if (releasedBand) { releasedBand.style.bottom = high + '%'; releasedBand.style.height = Math.max(0, 100 - high) + '%'; }
   if (lowLine) lowLine.style.bottom = low + '%';
   if (highLine) highLine.style.bottom = high + '%';
   if (label) label.style.bottom = ((low + high) / 2) + '%';   // κεντραρισμένο στο μέσο της ζώνης
@@ -656,8 +672,7 @@ function renderTeacher() {
   document.getElementById('tBrakeVal').textContent = state.brake + '%';
   const tClutchFill = document.getElementById('tClutchFill');
   tClutchFill.style.height = state.clutch + '%';
-  tClutchFill.classList.remove('zonePressed', 'zoneBite', 'zoneReleased');
-  tClutchFill.classList.add(clutchZoneClass(state.clutch));
+  document.getElementById('tClutchArrow').style.bottom = state.clutch + '%';
   document.getElementById('tClutchVal').textContent = state.clutch + '%';
 
   // Οπτικό "κλείδωμα" γκαζιού/φρένου μεταξύ τους (ο συμπλέκτης είναι πάντα ελεύθερος)
@@ -680,8 +695,7 @@ function renderStudent(gas, brake, clutch, gear) {
   document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
   const sClutchFill = document.getElementById('sClutchFill');
   sClutchFill.style.height = clutch + '%';
-  sClutchFill.classList.remove('zonePressed', 'zoneBite', 'zoneReleased');
-  sClutchFill.classList.add(clutchZoneClass(clutch));
+  document.getElementById('sClutchArrow').style.bottom = clutch + '%';
   document.getElementById('sClutchVal').textContent = Math.round(clutch) + '%';
   if (gear) {
     document.getElementById('sGearVal').textContent = gear;
