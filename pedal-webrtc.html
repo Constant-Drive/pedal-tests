@@ -56,12 +56,15 @@
   .fill.clutch.zonePressed  { background:linear-gradient(to top,#5a6472,#8b96a5); box-shadow:0 0 20px rgba(90,100,114,.4); }
   .fill.clutch.zoneBite     { background:linear-gradient(to top,#f2b134,#ffd873); box-shadow:0 0 26px rgba(242,177,52,.5); }
   .fill.clutch.zoneReleased { background:linear-gradient(to top,var(--clutch),#cbb6ff); box-shadow:0 0 24px rgba(167,139,250,.45); }
+  .zoneBand { position:absolute; left:0; right:0; background:rgba(242,177,52,.16);
+    border-top:1px solid rgba(242,177,52,.4); border-bottom:1px solid rgba(242,177,52,.4); }
   .zoneMarker { position:absolute; left:0; right:0; height:2px; background:#f2b134;
     box-shadow:0 0 6px rgba(242,177,52,.7); }
-  .zoneLabel { position:absolute; left:0; right:0;
-    display:flex; align-items:center; justify-content:center;
-    writing-mode:vertical-rl; text-orientation:mixed; font-size:9px; font-weight:700;
-    letter-spacing:1px; color:rgba(0,0,0,.5); pointer-events:none; }
+  .zoneLabel { position:absolute; left:1px; right:1px; transform:translateY(50%);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    white-space:normal; line-height:1.15; font-size:8.5px; font-weight:800;
+    letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
+    pointer-events:none; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
@@ -286,6 +289,9 @@ function clutchZoneClass(val) {
 function addClutchZoneMarkers(prefix) {
   const ticks = document.getElementById(prefix + 'ClutchTicks');
   if (!ticks) return;
+  const band = document.createElement('div');
+  band.className = 'zoneBand'; band.id = prefix + 'ClutchZoneBand';
+  ticks.appendChild(band);
   const lowLine = document.createElement('div');
   lowLine.className = 'zoneMarker'; lowLine.id = prefix + 'ClutchMarkerLow';
   ticks.appendChild(lowLine);
@@ -299,12 +305,14 @@ function addClutchZoneMarkers(prefix) {
   updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
 }
 function updateClutchZoneMarkers(prefix, low, high) {
+  const band = document.getElementById(prefix + 'ClutchZoneBand');
   const lowLine = document.getElementById(prefix + 'ClutchMarkerLow');
   const highLine = document.getElementById(prefix + 'ClutchMarkerHigh');
   const label = document.getElementById(prefix + 'ClutchZoneLabel');
+  if (band) { band.style.bottom = low + '%'; band.style.height = Math.max(0, high - low) + '%'; }
   if (lowLine) lowLine.style.bottom = low + '%';
   if (highLine) highLine.style.bottom = high + '%';
-  if (label) { label.style.bottom = low + '%'; label.style.height = Math.max(0, high - low) + '%'; }
+  if (label) label.style.bottom = ((low + high) / 2) + '%';   // κεντραρισμένο στο μέσο της ζώνης
 }
 addClutchZoneMarkers('t');
 addClutchZoneMarkers('s');
