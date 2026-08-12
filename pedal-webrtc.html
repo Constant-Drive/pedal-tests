@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Οδηγός Πεντάλ — WebRTC</title>
+<style>
+  :root {
+    --bg:#101418; --panel:#1a2027; --line:#2c343d; --text:#e8edf2; --muted:#8a97a5;
+    --brake:#ff453a; --gas:#32d74b; --clutch:#a78bfa; --warn:#f2a83c;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; overflow:hidden; }
+  body { background:var(--bg); color:var(--text);
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif;
+    user-select:none; -webkit-user-select:none; touch-action:none; }
+  .screen { display:none; height:100%; flex-direction:column; }
+  .screen.active { display:flex; }
+
+  /* ---------- Επιλογή ρόλου ---------- */
+  #roleScreen { justify-content:center; align-items:center; gap:20px; padding:24px; }
+  #roleScreen h1 { font-size:22px; font-weight:700; }
+  #roleScreen p.sub { color:var(--muted); font-size:14px; text-align:center; line-height:1.5; }
+  .roleBtn { width:100%; max-width:340px; padding:22px; border-radius:16px;
+    border:1px solid var(--line); background:var(--panel); color:var(--text);
+    font-size:19px; font-weight:600; cursor:pointer; }
+  .roleBtn span { display:block; font-size:13px; font-weight:400; color:var(--muted); margin-top:6px; }
+  .roleBtn:active { background:#232b34; }
+
+  /* ---------- Κοινά ---------- */
+  .topbar { display:flex; align-items:center; justify-content:space-between;
+    padding:10px 14px; border-bottom:1px solid var(--line); font-size:13px;
+    color:var(--muted); flex:0 0 auto; gap:8px; }
+  .statusDot { width:9px; height:9px; border-radius:50%; background:#666;
+    display:inline-block; margin-right:6px; flex:0 0 auto; }
+  .statusDot.on { background:var(--gas); box-shadow:0 0 6px var(--gas); }
+  .statusDot.wait { background:var(--warn); box-shadow:0 0 6px var(--warn); }
+  .topbar button { background:none; border:1px solid var(--line); color:var(--muted);
+    padding:5px 10px; border-radius:8px; font-size:12px; cursor:pointer; }
+
+  .barsArea { flex:1; display:flex; gap:8px; padding:12px 10px; min-height:0; justify-content:center; }
+  .pedalCol { flex:0 0 calc((100% - 16px) / 3); max-width:calc((100% - 16px) / 3);
+    display:flex; flex-direction:column; gap:6px; min-height:0; }
+  .pedalLabel { text-align:center; font-size:12.5px; font-weight:700; letter-spacing:.5px; flex:0 0 auto; }
+  .pedalLabel.brake { color:var(--brake); } .pedalLabel.gas { color:var(--gas); } .pedalLabel.clutch { color:var(--clutch); }
+  .pedalValue { text-align:center; font-size:26px; font-weight:800;
+    font-variant-numeric:tabular-nums; flex:0 0 auto; }
+  .track { flex:1; position:relative; border-radius:18px; overflow:hidden;
+    background:var(--panel); border:1px solid var(--line); min-height:0; }
+  .track .ticks { position:absolute; inset:0; pointer-events:none; }
+  .track .ticks div { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,.09); }
+  .track .ticks div.major { background:rgba(255,255,255,.18); }
+  .fill { position:absolute; left:0; right:0; bottom:0; height:0%; transition:height .06s linear; }
+  .fill.brake { background:linear-gradient(to top,var(--brake),#ff7a70); box-shadow:0 0 24px rgba(255,69,58,.45); }
+  .fill.gas { background:linear-gradient(to top,var(--gas),#7dff92); box-shadow:0 0 24px rgba(50,215,75,.45); }
+  .fill.clutch { background:rgba(255,255,255,.35); border-top:2px solid #22d3ee;
+    box-shadow:0 -2px 8px rgba(34,211,238,.6); }
+  .clutchTrackWrap { flex:1; position:relative; min-height:0; }
+  .clutchTrackWrap .track { position:absolute; inset:0; flex:none; }
+  .zoneBandPressed  { position:absolute; left:0; right:0; background:#6b7785; }
+  .zoneBandBite     { position:absolute; left:0; right:0; background:#f2b134; }
+  .zoneBandReleased { position:absolute; left:0; right:0; background:#a78bfa; }
+  .zoneMarker { position:absolute; left:0; right:0; height:2px; background:rgba(255,255,255,.45); }
+  .zoneLabel { position:absolute; left:1px; right:1px; transform:translateY(50%);
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    white-space:normal; line-height:1.15; font-size:8.5px; font-weight:800;
+    letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
+    pointer-events:none; }
+  .clutchArrow { position:absolute; left:-9px; width:0; height:0; transform:translateY(50%);
+    border-top:7px solid transparent; border-bottom:7px solid transparent;
+    border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
+    transition:bottom .05s linear; }
+  .clutchColorRow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 14px; }
+  input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
+    background:none; padding:2px; cursor:pointer; }
+  .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
+  .zeroBtn:active { background:#232b34; }
+  #studentScreen .pedalValue { font-size:38px; }
+  #hint { text-align:center; color:var(--muted); font-size:12px; padding:6px 14px 10px; flex:0 0 auto; }
+
+  /* ---------- Ταχύτητες ---------- */
+  .gearRow { display:flex; flex-wrap:wrap; gap:8px; padding:10px 14px; flex:0 0 auto;
+    border-top:1px solid var(--line); }
+  .gearBtn { flex:1 1 60px; padding:14px 0; text-align:center; border-radius:12px;
+    border:1px solid var(--line); background:var(--panel); color:var(--text);
+    font-size:17px; font-weight:700; cursor:pointer; }
+  .gearBtn:active { background:#232b34; }
+  .gearBtn.active { background:#22324a; border-color:#5b9bd9; color:#a9d6ff;
+    box-shadow:0 0 14px rgba(91,155,217,.4); }
+  .gearWrap { flex:0 0 auto; }
+  .gearWrapLabel { text-align:center; font-size:11px; color:var(--muted); letter-spacing:1px;
+    padding:8px 0 0; }
+  #studentScreen .gearWrap { display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:8px 0 2px; }
+  #studentScreen .gearLabel { font-size:12px; color:var(--muted); letter-spacing:2px; }
+  #studentScreen .gearValue { font-size:64px; font-weight:800; line-height:1.05; color:#a9d6ff;
+    text-shadow:0 0 20px rgba(91,155,217,.5); transition:color .15s, transform .15s; }
+  #studentScreen .gearValue.pulse { animation:gearPulse .55s ease; }
+  @keyframes gearPulse {
+    0%   { transform:scale(1);    color:#a9d6ff; }
+    25%  { transform:scale(1.35); color:#ffffff; }
+    100% { transform:scale(1);    color:#a9d6ff; }
+  }
+  #studentScreen { position:relative; }
+  #sFlashOverlay { position:absolute; inset:0; background:#a9d6ff; opacity:0;
+    pointer-events:none; z-index:40; }
+  #sFlashOverlay.flash { animation:flashFade .5s ease-out; }
+  @keyframes flashFade { 0% { opacity:.5; } 100% { opacity:0; } }
+  #sSoundBtn, #tSoundBtn { font-size:15px; }
+  .pedalSettingsPanel { display:none; }
+  .pedalSettingsPanel.open { display:block; }
+  .clutchZoneRow { display:flex; align-items:center; gap:10px; padding:6px 14px; }
+  .czLabel { font-size:13px; color:var(--muted); width:34px; flex:0 0 auto; }
+  .czVal { font-size:15px; font-weight:700; min-width:42px; text-align:center; flex:0 0 auto; }
+  .stepBtn { width:34px; height:34px; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--text); font-size:18px; font-weight:700; cursor:pointer; flex:0 0 auto; }
+  .stepBtn:active { background:#232b34; }
+
+  /* ---------- Σφάλμα config ---------- */
+  #configWarn { display:none; position:fixed; inset:0; background:rgba(0,0,0,.88);
+    padding:28px; z-index:50; overflow:auto; font-size:14px; line-height:1.7; }
+  #configWarn h2 { color:var(--brake); margin-bottom:12px; }
+  #configWarn code { background:#000; padding:2px 6px; border-radius:6px; color:#7dff92; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     ΡΥΘΜΙΣΗ FIREBASE — ΣΥΜΠΛΗΡΩΣΕ ΕΔΩ
+     Είναι το ΙΔΙΟ config με την εφαρμογή "Οδηγώ & Μαθαίνω"
+     (θα το βρεις στο repo σου, στο αρχείο που κάνει initializeApp).
+     Χρησιμοποιείται ΜΟΝΟ για τη χειραψία (2-3 δευτ. στην αρχή).
+============================================================ -->
+<script>
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyAptVHTE99L6xqg18L3nRd1vLu5vppcxc8",
+  authDomain: "constant-drive.firebaseapp.com",
+  projectId: "constant-drive",
+  storageBucket: "constant-drive.appspot.com",
+  messagingSenderId: "248624922734",
+  appId: "1:248624922734:web:0550ec200b6ed7019ae67f"
+};
+</script>
+
+<div id="configWarn">
+  <h2>Χρειάζεται ρύθμιση</h2>
+  <p>Άνοιξε το αρχείο και συμπλήρωσε το <code>window.FIREBASE_CONFIG</code> στην κορυφή
+  με τις τιμές από την εφαρμογή «Οδηγώ &amp; Μαθαίνω» (ίδιο Firebase project).</p>
+</div>
+
+<!-- ---------- Επιλογή ρόλου ---------- -->
+<div id="roleScreen" class="screen active">
+  <h1>Οδηγός Πεντάλ <small style="font-size:12px;color:var(--muted)">P2P</small></h1>
+  <p class="sub">1. Άνοιξε hotspot στο κινητό &amp; σύνδεσε το tablet<br>
+     2. Πρώτα «Δάσκαλος» στο tablet, μετά «Μαθητής» στο κινητό</p>
+  <button class="roleBtn" onpointerdown="startRole('teacher')">🎛️ Δάσκαλος
+    <span>Tablet — εσύ κινείς τις μπάρες</span></button>
+  <button class="roleBtn" onpointerdown="startRole('student')">📱 Μαθητής
+    <span>Κινητό μπροστά στον μαθητή — μόνο προβολή</span></button>
+</div>
+
+<!-- ---------- Οθόνη δασκάλου ---------- -->
+<div id="teacherScreen" class="screen">
+  <div class="topbar">
+    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+      <span class="statusDot" id="tDot"></span><span id="tStatus">Εκκίνηση…</span></span>
+    <span style="display:flex;gap:6px;">
+      <button id="tSoundBtn" onpointerdown="toggleTeacherSound()">🔊</button>
+      <button onpointerdown="togglePedalSettings()">⚙️</button>
+      <button onpointerdown="location.reload()">Επανεκκίνηση</button>
+    </span>
+  </div>
+  <div class="pedalSettingsPanel" id="tPedalSettingsPanel">
+    <div class="gearWrapLabel" style="padding-top:0;">ΕΜΦΑΝΙΣΗ ΠΕΝΤΑΛ</div>
+    <div class="gearRow" style="border-top:0;">
+      <button class="gearBtn" data-pedal="clutch" onpointerdown="togglePedalVisible('clutch')">Συμπλέκτης</button>
+      <button class="gearBtn" data-pedal="brake" onpointerdown="togglePedalVisible('brake')">Φρένο</button>
+      <button class="gearBtn" data-pedal="gas" onpointerdown="togglePedalVisible('gas')">Γκάζι</button>
+    </div>
+    <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Από</span>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('low',-5)">−</button>
+      <span class="czVal" id="clutchLowVal">30%</span>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('low',5)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Έως</span>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('high',-5)">−</button>
+      <span class="czVal" id="clutchHighVal">70%</span>
+      <button class="stepBtn" onpointerdown="adjustClutchZone('high',5)">+</button>
+    </div>
+    <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Πατημένος</span>
+      <input type="color" id="clutchColorPressed" value="#6b7785" oninput="setClutchZoneColor('pressed', this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Ημισύμπλεξη</span>
+      <input type="color" id="clutchColorBite" value="#f2b134" oninput="setClutchZoneColor('bite', this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Ελεύθερος</span>
+      <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
+    </div>
+  </div>
+  <div class="barsArea">
+    <div class="pedalCol" id="tClutchCol">
+      <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
+      <div class="pedalValue" id="tClutchVal">100%</div>
+      <div class="clutchTrackWrap">
+        <div class="track" id="tClutchTrack"><div class="ticks" id="tClutchTicks"></div><div class="fill clutch" id="tClutchFill" style="height:100%"></div></div>
+        <div class="clutchArrow" id="tClutchArrow" style="bottom:100%"></div>
+      </div>
+      <button class="zeroBtn" id="tClutchZeroBtn" onpointerdown="toggleClutchExtreme()">Ελεύθερος</button>
+    </div>
+    <div class="pedalCol" id="tBrakeCol">
+      <div class="pedalLabel brake">ΦΡΕΝΟ</div>
+      <div class="pedalValue" id="tBrakeVal">0%</div>
+      <div class="track" id="tBrakeTrack"><div class="ticks"></div><div class="fill brake" id="tBrakeFill"></div></div>
+      <button class="zeroBtn" onpointerdown="zeroPedal('brake')">Μηδέν</button>
+    </div>
+    <div class="pedalCol" id="tGasCol">
+      <div class="pedalLabel gas">ΓΚΑΖΙ</div>
+      <div class="pedalValue" id="tGasVal">0%</div>
+      <div class="track" id="tGasTrack"><div class="ticks"></div><div class="fill gas" id="tGasFill"></div></div>
+      <button class="zeroBtn" onpointerdown="zeroPedal('gas')">Μηδέν</button>
+    </div>
+  </div>
+  <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
+  <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ</div>
+  <div class="gearRow" id="tGearRow">
+    <button class="gearBtn" data-gear="Ν" onpointerdown="setGear('Ν')">Ν</button>
+    <button class="gearBtn" data-gear="1" onpointerdown="setGear('1')">1</button>
+    <button class="gearBtn" data-gear="2" onpointerdown="setGear('2')">2</button>
+    <button class="gearBtn" data-gear="3" onpointerdown="setGear('3')">3</button>
+    <button class="gearBtn" data-gear="4" onpointerdown="setGear('4')">4</button>
+    <button class="gearBtn" data-gear="5" onpointerdown="setGear('5')">5</button>
+    <button class="gearBtn" data-gear="ΟΠ" onpointerdown="setGear('ΟΠ')">ΟΠ</button>
+  </div>
+</div>
+
+<!-- ---------- Οθόνη μαθητή ---------- -->
+<div id="studentScreen" class="screen">
+  <div id="sFlashOverlay"></div>
+  <div class="topbar">
+    <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+      <span class="statusDot" id="sDot"></span><span id="sStatus">Εκκίνηση…</span></span>
+    <span style="display:flex;gap:6px;">
+      <button id="sSoundBtn" onpointerdown="toggleSound()">🔊</button>
+      <button onpointerdown="location.reload()">Επανεκκίνηση</button>
+      <button onpointerdown="toggleFullscreen()">Πλήρης οθόνη</button>
+    </span>
+  </div>
+  <div class="gearWrap">
+    <div class="gearLabel">ΤΑΧΥΤΗΤΑ</div>
+    <div class="gearValue" id="sGearVal">Ν</div>
+  </div>
+  <div class="barsArea">
+    <div class="pedalCol" id="sClutchCol">
+      <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
+      <div class="pedalValue" id="sClutchVal">100%</div>
+      <div class="clutchTrackWrap">
+        <div class="track"><div class="ticks" id="sClutchTicks"></div><div class="fill clutch" id="sClutchFill" style="height:100%"></div></div>
+        <div class="clutchArrow" id="sClutchArrow" style="bottom:100%"></div>
+      </div>
+    </div>
+    <div class="pedalCol" id="sBrakeCol">
+      <div class="pedalLabel brake">ΦΡΕΝΟ</div>
+      <div class="pedalValue" id="sBrakeVal">0%</div>
+      <div class="track"><div class="ticks"></div><div class="fill brake" id="sBrakeFill"></div></div>
+    </div>
+    <div class="pedalCol" id="sGasCol">
+      <div class="pedalLabel gas">ΓΚΑΖΙ</div>
+      <div class="pedalValue" id="sGasVal">0%</div>
+      <div class="track"><div class="ticks"></div><div class="fill gas" id="sGasFill"></div></div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getFirestore, doc, setDoc, updateDoc, onSnapshot, collection, addDoc, getDocs, deleteDoc }
+  from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+// ---------- Tick marks ----------
+document.querySelectorAll('.ticks').forEach(t => {
+  for (let i = 1; i < 10; i++) {
+    const d = document.createElement('div');
+    d.style.bottom = (i * 10) + '%';
+    if (i % 5 === 0) d.classList.add('major');
+    t.appendChild(d);
+  }
+});
+
+// ---------- Ζώνη ημισύμπλεξης συμπλέκτη (ρυθμίζεται από τον δάσκαλο) ----------
+function loadClutchZone() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideClutchZone'));
+    if (saved && typeof saved.low === 'number' && typeof saved.high === 'number') {
+      const low = Math.min(90, Math.max(0, Math.round(saved.low)));
+      const high = Math.min(100, Math.max(low + 5, Math.round(saved.high)));
+      return { low, high };
+    }
+  } catch (e) {}
+  return { low: 30, high: 70 };
+}
+let { low: CLUTCH_ZONE_LOW, high: CLUTCH_ZONE_HIGH } = loadClutchZone();
+
+function addClutchZoneMarkers(prefix) {
+  const ticks = document.getElementById(prefix + 'ClutchTicks');
+  if (!ticks) return;
+  const pressedBand = document.createElement('div');
+  pressedBand.className = 'zoneBandPressed'; pressedBand.id = prefix + 'ClutchBandPressed';
+  ticks.appendChild(pressedBand);
+  const biteBand = document.createElement('div');
+  biteBand.className = 'zoneBandBite'; biteBand.id = prefix + 'ClutchBandBite';
+  ticks.appendChild(biteBand);
+  const releasedBand = document.createElement('div');
+  releasedBand.className = 'zoneBandReleased'; releasedBand.id = prefix + 'ClutchBandReleased';
+  ticks.appendChild(releasedBand);
+  const lowLine = document.createElement('div');
+  lowLine.className = 'zoneMarker'; lowLine.id = prefix + 'ClutchMarkerLow';
+  ticks.appendChild(lowLine);
+  const highLine = document.createElement('div');
+  highLine.className = 'zoneMarker'; highLine.id = prefix + 'ClutchMarkerHigh';
+  ticks.appendChild(highLine);
+  const label = document.createElement('div');
+  label.className = 'zoneLabel'; label.id = prefix + 'ClutchZoneLabel';
+  label.textContent = 'ΗΜΙΣΥΜΠΛΕΞΗ';
+  ticks.appendChild(label);
+  updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
+}
+function updateClutchZoneMarkers(prefix, low, high) {
+  const pressedBand = document.getElementById(prefix + 'ClutchBandPressed');
+  const biteBand = document.getElementById(prefix + 'ClutchBandBite');
+  const releasedBand = document.getElementById(prefix + 'ClutchBandReleased');
+  const lowLine = document.getElementById(prefix + 'ClutchMarkerLow');
+  const highLine = document.getElementById(prefix + 'ClutchMarkerHigh');
+  const label = document.getElementById(prefix + 'ClutchZoneLabel');
+  if (pressedBand)  { pressedBand.style.bottom = '0%';   pressedBand.style.height = low + '%'; }
+  if (biteBand)     { biteBand.style.bottom = low + '%'; biteBand.style.height = Math.max(0, high - low) + '%'; }
+  if (releasedBand) { releasedBand.style.bottom = high + '%'; releasedBand.style.height = Math.max(0, 100 - high) + '%'; }
+  if (lowLine) lowLine.style.bottom = low + '%';
+  if (highLine) highLine.style.bottom = high + '%';
+  if (label) label.style.bottom = ((low + high) / 2) + '%';   // κεντραρισμένο στο μέσο της ζώνης
+}
+addClutchZoneMarkers('t');
+addClutchZoneMarkers('s');
+
+// ---------- Χρώματα ζωνών συμπλέκτη (ρυθμίζονται από τον δάσκαλο) ----------
+function loadClutchColors() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideClutchColors'));
+    if (saved && saved.pressed && saved.bite && saved.released) return saved;
+  } catch (e) {}
+  return { pressed: '#6b7785', bite: '#f2b134', released: '#a78bfa' };
+}
+let CLUTCH_COLORS = loadClutchColors();
+function applyClutchColors(prefix, colors) {
+  const p = document.getElementById(prefix + 'ClutchBandPressed');
+  const b = document.getElementById(prefix + 'ClutchBandBite');
+  const r = document.getElementById(prefix + 'ClutchBandReleased');
+  if (p) p.style.background = colors.pressed;
+  if (b) b.style.background = colors.bite;
+  if (r) r.style.background = colors.released;
+}
+applyClutchColors('t', CLUTCH_COLORS);
+applyClutchColors('s', CLUTCH_COLORS);
+document.getElementById('clutchColorPressed').value = CLUTCH_COLORS.pressed;
+document.getElementById('clutchColorBite').value = CLUTCH_COLORS.bite;
+document.getElementById('clutchColorReleased').value = CLUTCH_COLORS.released;
+window.setClutchZoneColor = function(which, hex) {
+  CLUTCH_COLORS = { ...CLUTCH_COLORS, [which]: hex };
+  localStorage.setItem('pedalGuideClutchColors', JSON.stringify(CLUTCH_COLORS));
+  applyClutchColors('t', CLUTCH_COLORS);
+  sendNow();   // άμεση ενημέρωση μαθητή
+};
+
+// Κουμπιά +/- στο πάνελ ρυθμίσεων του δασκάλου
+window.adjustClutchZone = function(which, delta) {
+  let low = CLUTCH_ZONE_LOW, high = CLUTCH_ZONE_HIGH;
+  if (which === 'low') low = Math.min(high - 5, Math.max(0, low + delta));
+  else high = Math.max(low + 5, Math.min(100, high + delta));
+  CLUTCH_ZONE_LOW = low; CLUTCH_ZONE_HIGH = high;
+  localStorage.setItem('pedalGuideClutchZone', JSON.stringify({ low, high }));
+  document.getElementById('clutchLowVal').textContent = low + '%';
+  document.getElementById('clutchHighVal').textContent = high + '%';
+  updateClutchZoneMarkers('t', low, high);
+  renderTeacher();   // επανυπολογισμός χρώματος τρέχουσας τιμής με τα νέα όρια
+  sendNow();         // άμεση ενημέρωση μαθητή
+};
+document.getElementById('clutchLowVal').textContent = CLUTCH_ZONE_LOW + '%';
+document.getElementById('clutchHighVal').textContent = CLUTCH_ZONE_HIGH + '%';
+
+// ---------- Firebase (μόνο για χειραψία) ----------
+let db = null;
+const cfg = window.FIREBASE_CONFIG || {};
+if (!cfg.apiKey || cfg.apiKey === "ΒΑΛΕ_ΕΔΩ") {
+  document.getElementById('configWarn').style.display = 'block';
+} else {
+  db = getFirestore(initializeApp(cfg));
+}
+const ROOM = 'webrtc-pedals';   // collection στο Firestore
+
+// ---------- Κατάσταση ----------
+function loadVisiblePedals() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideVisiblePedals'));
+    if (saved && typeof saved === 'object')
+      return { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false };
+  } catch (e) {}
+  return { gas: true, brake: true, clutch: true };
+}
+const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν',
+  alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off'),
+  visible: loadVisiblePedals() };
+let role = null, pc = null, channel = null;
+
+// ---------- Ποια πεντάλ εμφανίζονται (επιλέγεται από τον δάσκαλο) ----------
+const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch' };
+function applyPedalVisibility(vis, prefix) {
+  Object.keys(PEDAL_COL_ID).forEach(p => {
+    const col = document.getElementById(prefix + PEDAL_COL_ID[p] + 'Col');
+    if (col) col.style.display = vis[p] ? '' : 'none';
+  });
+}
+function updatePedalToggleButtons() {
+  document.querySelectorAll('#tPedalSettingsPanel .gearBtn').forEach(btn => {
+    btn.classList.toggle('active', !!state.visible[btn.dataset.pedal]);
+  });
+}
+window.togglePedalSettings = function() {
+  document.getElementById('tPedalSettingsPanel').classList.toggle('open');
+};
+window.togglePedalVisible = function(which) {
+  const proposed = { ...state.visible, [which]: !state.visible[which] };
+  if (!(proposed.gas || proposed.brake || proposed.clutch)) return;  // πρέπει να μείνει τουλάχιστον ένα ορατό
+  state.visible = proposed;
+  localStorage.setItem('pedalGuideVisiblePedals', JSON.stringify(state.visible));
+  applyPedalVisibility(state.visible, 't');
+  updatePedalToggleButtons();
+  sendNow();   // άμεση ενημέρωση μαθητή
+};
+
+function updateTeacherSoundBtn() {
+  const b = document.getElementById('tSoundBtn');
+  if (b) b.textContent = state.alertsOn ? '🔊' : '🔇';
+}
+window.toggleTeacherSound = function() {
+  state.alertsOn = !state.alertsOn;
+  localStorage.setItem('pedalGuideTeacherAlerts', state.alertsOn ? 'on' : 'off');
+  updateTeacherSoundBtn();
+  sendNow();   // άμεση αποστολή, χωρίς αναμονή throttle, ώστε ο μαθητής να ενημερωθεί αμέσως
+};
+
+function setStatus(kind, msg) {
+  // kind: 'on' | 'wait' | 'off'
+  for (const [dot, txt] of [['tDot','tStatus'], ['sDot','sStatus']]) {
+    const d = document.getElementById(dot);
+    d.classList.remove('on','wait');
+    if (kind === 'on') d.classList.add('on');
+    if (kind === 'wait') d.classList.add('wait');
+    document.getElementById(txt).textContent = msg;
+  }
+}
+
+// ---------- Ήχος/φωνή για αλλαγή ταχύτητας (μόνο οθόνη μαθητή) ----------
+let soundOn = localStorage.getItem('pedalGuideSound') !== 'off';
+let teacherAlertsOn = true;   // ενημερώνεται από το tablet του δασκάλου, μέσω του καναλιού
+let audioCtx = null;
+let studentPrevGear = null;
+const GEAR_SPEECH = { 'Ν':'Νεκρά', '1':'Πρώτη ταχύτητα', '2':'Δεύτερη ταχύτητα', '3':'Τρίτη ταχύτητα', '4':'Τέταρτη ταχύτητα', '5':'Πέμπτη ταχύτητα', 'ΟΠ':'Όπισθεν' };
+
+function updateSoundBtn() {
+  const b = document.getElementById('sSoundBtn');
+  if (b) b.textContent = soundOn ? '🔊' : '🔇';
+}
+window.toggleSound = function() {
+  soundOn = !soundOn;
+  localStorage.setItem('pedalGuideSound', soundOn ? 'on' : 'off');
+  updateSoundBtn();
+};
+
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function playGearChime() {
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  const beep = (freq, start, dur) => {
+    const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+    osc.type = 'sine'; osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, t0 + start);
+    gain.gain.linearRampToValueAtTime(0.35, t0 + start + 0.01);
+    gain.gain.linearRampToValueAtTime(0, t0 + start + dur);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start(t0 + start); osc.stop(t0 + start + dur + 0.02);
+  };
+  beep(880, 0, 0.12);
+  beep(1175, 0.14, 0.18);
+}
+let greekVoice = null;
+function loadGreekVoice() {
+  try {
+    const voices = speechSynthesis.getVoices();
+    greekVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith('el')) || null;
+  } catch (e) {}
+}
+if ('speechSynthesis' in window) {
+  loadGreekVoice();
+  speechSynthesis.onvoiceschanged = loadGreekVoice;
+}
+function speakGear(gear) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(GEAR_SPEECH[gear] || gear);
+    u.lang = 'el-GR';
+    if (greekVoice) u.voice = greekVoice;
+    u.rate = 1;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function flashGearChange() {
+  const overlay = document.getElementById('sFlashOverlay');
+  const digit = document.getElementById('sGearVal');
+  overlay.classList.remove('flash'); void overlay.offsetWidth; overlay.classList.add('flash');
+  digit.classList.remove('pulse'); void digit.offsetWidth; digit.classList.add('pulse');
+}
+function announceGearChange(gear) {
+  if (!(soundOn && teacherAlertsOn)) return;   // ο δάσκαλος ή ο μαθητής έχει σβήσει τις ειδοποιήσεις
+  flashGearChange();
+  playGearChime();
+  speakGear(gear);
+}
+
+window.startRole = function(r) {
+  role = r;
+  document.getElementById('roleScreen').classList.remove('active');
+  document.getElementById(r === 'teacher' ? 'teacherScreen' : 'studentScreen').classList.add('active');
+  requestWakeLock();
+  if (r === 'student') {
+    updateSoundBtn();
+    // Ξεκλείδωμα ήχου/φωνής με αυτή τη χειρονομία αγγίγματος (απαιτείται στο κινητό)
+    ensureAudio();
+    try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
+  }
+  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); }
+  if (!db) return;
+  if (r === 'teacher') { renderTeacher(); startTeacher(); }
+  else startStudent();
+};
+
+// ---------- WebRTC ----------
+function newPC() {
+  const p = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+  p.onconnectionstatechange = () => {
+    if (p.connectionState === 'connected') setStatus('on', 'Συνδεδεμένο P2P');
+    else if (p.connectionState === 'disconnected' || p.connectionState === 'failed')
+      setStatus('off', 'Χάθηκε η σύνδεση — πάτα «Επανεκκίνηση» και στις 2 συσκευές');
+  };
+  return p;
+}
+
+async function clearRoom() {
+  // Σβήσε παλιά χειραψία για να μη μπερδεύει
+  for (const sub of ['callerCandidates', 'calleeCandidates']) {
+    const snap = await getDocs(collection(db, ROOM, 'room', sub));
+    for (const d of snap.docs) await deleteDoc(d.ref);
+  }
+  await deleteDoc(doc(db, ROOM, 'room')).catch(() => {});
+}
+
+// ----- Δάσκαλος: δημιουργεί την πρόσκληση -----
+async function startTeacher() {
+  setStatus('wait', 'Προετοιμασία…');
+  await clearRoom();
+  pc = newPC();
+
+  channel = pc.createDataChannel('pedals');
+  channel.onopen = () => { setStatus('on', 'Συνδεδεμένο P2P'); sendNow(); };
+
+  pc.onicecandidate = e => {
+    if (e.candidate) addDoc(collection(db, ROOM, 'room', 'callerCandidates'), e.candidate.toJSON());
+  };
+
+  const offer = await pc.createOffer();
+  await pc.setLocalDescription(offer);
+  await setDoc(doc(db, ROOM, 'room'), { offer: { type: offer.type, sdp: offer.sdp } });
+  setStatus('wait', 'Αναμονή μαθητή… (άνοιξε τη σελίδα στο κινητό)');
+
+  onSnapshot(doc(db, ROOM, 'room'), async snap => {
+    const data = snap.data();
+    if (data && data.answer && !pc.currentRemoteDescription) {
+      await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+    }
+  });
+  onSnapshot(collection(db, ROOM, 'room', 'calleeCandidates'), snap => {
+    snap.docChanges().forEach(ch => {
+      if (ch.type === 'added') pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
+    });
+  });
+}
+
+// ----- Μαθητής: απαντά στην πρόσκληση -----
+let studentStarted = false;
+function startStudent() {
+  setStatus('wait', 'Αναμονή δασκάλου… (πάτα «Δάσκαλος» στο tablet)');
+  onSnapshot(doc(db, ROOM, 'room'), async snap => {
+    const data = snap.data();
+    if (!data || !data.offer || studentStarted) return;
+    studentStarted = true;
+    setStatus('wait', 'Σύνδεση…');
+
+    pc = newPC();
+    pc.ondatachannel = e => {
+      channel = e.channel;
+      channel.onmessage = ev => {
+        try {
+          const v = JSON.parse(ev.data);
+          teacherAlertsOn = v.alertsOn !== false;
+          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true }, 's');
+          if (typeof v.clutchZoneLow === 'number' && typeof v.clutchZoneHigh === 'number' &&
+              (v.clutchZoneLow !== CLUTCH_ZONE_LOW || v.clutchZoneHigh !== CLUTCH_ZONE_HIGH)) {
+            CLUTCH_ZONE_LOW = v.clutchZoneLow; CLUTCH_ZONE_HIGH = v.clutchZoneHigh;
+            updateClutchZoneMarkers('s', CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
+          }
+          if (v.clutchColors && (v.clutchColors.pressed !== CLUTCH_COLORS.pressed ||
+              v.clutchColors.bite !== CLUTCH_COLORS.bite || v.clutchColors.released !== CLUTCH_COLORS.released)) {
+            CLUTCH_COLORS = v.clutchColors;
+            applyClutchColors('s', CLUTCH_COLORS);
+          }
+          renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
+        } catch (err) {}
+      };
+      channel.onopen = () => setStatus('on', 'Συνδεδεμένο P2P');
+    };
+    pc.onicecandidate = e => {
+      if (e.candidate) addDoc(collection(db, ROOM, 'room', 'calleeCandidates'), e.candidate.toJSON());
+    };
+
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await updateDoc(doc(db, ROOM, 'room'), { answer: { type: answer.type, sdp: answer.sdp } });
+
+    onSnapshot(collection(db, ROOM, 'room', 'callerCandidates'), s => {
+      s.docChanges().forEach(ch => {
+        if (ch.type === 'added') pc.addIceCandidate(new RTCIceCandidate(ch.doc.data())).catch(() => {});
+      });
+    });
+  });
+}
+
+// ---------- Αποστολή (P2P — γρήγορο throttle 30ms) ----------
+let lastSend = 0, sendTimer = null;
+function sendNow() {
+  if (channel && channel.readyState === 'open') {
+    lastSend = Date.now();
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS }));
+  }
+}
+function send() {
+  const now = Date.now();
+  if (now - lastSend >= 30) sendNow();
+  else { clearTimeout(sendTimer); sendTimer = setTimeout(sendNow, 30 - (now - lastSend)); }
+}
+// Keepalive: στέλνει την τρέχουσα κατάσταση κάθε 500ms ούτως ή άλλως
+setInterval(() => { if (role === 'teacher') sendNow(); }, 500);
+
+window.setPedal = function(which, val) {
+  const v = Math.round(Math.min(100, Math.max(0, val)));
+  // Δεν επιτρέπεται γκάζι και φρένο μαζί: μόλις μπει τιμή στο ένα, το άλλο μηδενίζει.
+  // Ο συμπλέκτης είναι ανεξάρτητος — μπορεί να συνδυαστεί με οποιοδήποτε από τα δύο.
+  if (v > 0) {
+    if (which === 'gas') state.brake = 0;
+    else if (which === 'brake') state.gas = 0;
+  }
+  state[which] = v;
+  renderTeacher();
+  send();
+};
+
+// ---------- Ομαλό άφημα πεντάλ (κουμπί "Μηδέν") ----------
+const zeroAnim = { gas: null, brake: null, clutch: null };
+function cancelZeroAnim(which) {
+  if (zeroAnim[which]) { cancelAnimationFrame(zeroAnim[which]); zeroAnim[which] = null; }
+}
+window.zeroPedal = function(which, target = 0) {
+  cancelZeroAnim(which);
+  const startVal = state[which];
+  if (startVal === target) { setPedal(which, target); return; }
+  const duration = 420;              // ms — ρεαλιστική ταχύτητα αφήματος πεντάλ
+  const startTime = performance.now();
+  const delta = target - startVal;
+  function step(now) {
+    const t = Math.min(1, (now - startTime) / duration);
+    const eased = 1 - Math.pow(1 - t, 2);   // ease-out, πιο αργό προς το τέλος
+    setPedal(which, startVal + delta * eased);
+    if (t < 1) zeroAnim[which] = requestAnimationFrame(step);
+    else { zeroAnim[which] = null; setPedal(which, target); }
+  }
+  zeroAnim[which] = requestAnimationFrame(step);
+};
+
+// Κουμπί συμπλέκτη: δείχνει την επόμενη ενέργεια, όχι την τρέχουσα κατάσταση
+window.toggleClutchExtreme = function() {
+  zeroPedal('clutch', state.clutch >= 90 ? 0 : 100);
+};
+
+window.setGear = function(g) {
+  state.gear = g;
+  renderTeacher();
+  send();
+};
+
+// ---------- Render ----------
+function renderTeacher() {
+  document.getElementById('tGasFill').style.height = state.gas + '%';
+  document.getElementById('tGasVal').textContent = state.gas + '%';
+  document.getElementById('tBrakeFill').style.height = state.brake + '%';
+  document.getElementById('tBrakeVal').textContent = state.brake + '%';
+  const tClutchFill = document.getElementById('tClutchFill');
+  tClutchFill.style.height = state.clutch + '%';
+  document.getElementById('tClutchArrow').style.bottom = state.clutch + '%';
+  document.getElementById('tClutchZeroBtn').textContent = state.clutch >= 90 ? 'Πατημένος' : 'Ελεύθερος';
+  document.getElementById('tClutchVal').textContent = state.clutch + '%';
+
+  // Οπτικό "κλείδωμα" γκαζιού/φρένου μεταξύ τους (ο συμπλέκτης είναι πάντα ελεύθερος)
+  const gasLocked = state.brake > 0;
+  const brakeLocked = state.gas > 0;
+  document.getElementById('tGasTrack').style.opacity = gasLocked ? '0.35' : '1';
+  document.getElementById('tGasTrack').style.pointerEvents = gasLocked ? 'none' : 'auto';
+  document.getElementById('tBrakeTrack').style.opacity = brakeLocked ? '0.35' : '1';
+  document.getElementById('tBrakeTrack').style.pointerEvents = brakeLocked ? 'none' : 'auto';
+
+  // Highlight επιλεγμένης ταχύτητας
+  document.querySelectorAll('#tGearRow .gearBtn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.gear === state.gear);
+  });
+}
+function renderStudent(gas, brake, clutch, gear) {
+  document.getElementById('sGasFill').style.height = gas + '%';
+  document.getElementById('sGasVal').textContent = Math.round(gas) + '%';
+  document.getElementById('sBrakeFill').style.height = brake + '%';
+  document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
+  const sClutchFill = document.getElementById('sClutchFill');
+  sClutchFill.style.height = clutch + '%';
+  document.getElementById('sClutchArrow').style.bottom = clutch + '%';
+  document.getElementById('sClutchVal').textContent = Math.round(clutch) + '%';
+  if (gear) {
+    document.getElementById('sGearVal').textContent = gear;
+    if (studentPrevGear !== null && gear !== studentPrevGear) announceGearChange(gear);
+    studentPrevGear = gear;
+  }
+}
+
+// ---------- Χειρισμός αφής (δάσκαλος) ----------
+function attachDrag(trackId, which) {
+  const track = document.getElementById(trackId);
+  const update = (clientY) => {
+    const r = track.getBoundingClientRect();
+    setPedal(which, 100 * (r.bottom - clientY) / r.height);
+  };
+  track.addEventListener('pointerdown', e => {
+    track.setPointerCapture(e.pointerId);
+    cancelZeroAnim(which);
+    update(e.clientY);
+  });
+  track.addEventListener('pointermove', e => {
+    if (e.buttons || e.pressure > 0) update(e.clientY);
+  });
+}
+attachDrag('tGasTrack', 'gas');
+attachDrag('tBrakeTrack', 'brake');
+attachDrag('tClutchTrack', 'clutch');
+
+// ---------- Wake Lock ----------
+let wakeLock = null;
+async function requestWakeLock() {
+  try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && role) requestWakeLock();
+});
+
+// ---------- Πλήρης οθόνη ----------
+window.toggleFullscreen = function() {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+};
+</script>
+</body>
+</html>
