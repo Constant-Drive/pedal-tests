@@ -167,7 +167,7 @@ window.FIREBASE_CONFIG = {
       <button class="gearBtn" data-pedal="brake" onclick="togglePedalVisible('brake')">Φρένο</button>
       <button class="gearBtn" data-pedal="gas" onclick="togglePedalVisible('gas')">Γκάζι</button>
     </div>
-    <div class="gearWrapLabel">ΖΩΝΗ ΣΗΜΕΙΟΥ ΕΠΑΦΗΣ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Από</span>
       <button class="stepBtn" onclick="adjustClutchZone('low',-5)">−</button>
@@ -264,7 +264,7 @@ document.querySelectorAll('.ticks').forEach(t => {
   }
 });
 
-// ---------- Ζώνη σημείου επαφής συμπλέκτη (ρυθμίζεται από τον δάσκαλο) ----------
+// ---------- Ζώνη ημισύμπλεξης συμπλέκτη (ρυθμίζεται από τον δάσκαλο) ----------
 function loadClutchZone() {
   try {
     const saved = JSON.parse(localStorage.getItem('pedalGuideClutchZone'));
@@ -294,7 +294,7 @@ function addClutchZoneMarkers(prefix) {
   ticks.appendChild(highLine);
   const label = document.createElement('div');
   label.className = 'zoneLabel'; label.id = prefix + 'ClutchZoneLabel';
-  label.textContent = 'ΣΗΜΕΙΟ ΕΠΑΦΗΣ';
+  label.textContent = 'ΗΜΙΣΥΜΠΛΕΞΗ';
   ticks.appendChild(label);
   updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
 }
