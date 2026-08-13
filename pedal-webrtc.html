@@ -53,19 +53,21 @@
   .fill { position:absolute; left:0; right:0; bottom:0; height:0%; transition:height .06s linear; }
   .fill.brake { background:linear-gradient(to top,var(--brake),#ff7a70); box-shadow:0 0 24px rgba(255,69,58,.45); }
   .fill.gas { background:linear-gradient(to top,var(--gas),#7dff92); box-shadow:0 0 24px rgba(50,215,75,.45); }
-  .fill.clutch { background:rgba(255,255,255,.35); border-top:2px solid #22d3ee;
-    box-shadow:0 -2px 8px rgba(34,211,238,.6); }
   .clutchTrackWrap { flex:1; position:relative; min-height:0; }
   .clutchTrackWrap .track { position:absolute; inset:0; flex:none; }
-  .zoneBandPressed  { position:absolute; left:0; right:0; background:#6b7785; }
-  .zoneBandBite     { position:absolute; left:0; right:0; background:#f2b134; }
-  .zoneBandReleased { position:absolute; left:0; right:0; background:#a78bfa; }
+  .zoneBandPressed  { position:absolute; left:0; right:0; }
+  .zoneBandBite     { position:absolute; left:0; right:0; }
+  .zoneBandReleased { position:absolute; left:0; right:0; }
+  .clutchVividLayer { position:absolute; inset:0; pointer-events:none; transition:clip-path .05s linear; }
+  .clutchMarkersLayer { position:absolute; inset:0; pointer-events:none; }
   .zoneMarker { position:absolute; left:0; right:0; height:2px; background:rgba(255,255,255,.45); }
   .zoneLabel { position:absolute; left:1px; right:1px; transform:translateY(50%);
     display:flex; align-items:center; justify-content:center; text-align:center;
     white-space:normal; line-height:1.15; font-size:8.5px; font-weight:800;
     letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
     pointer-events:none; }
+  .clutchLevelLine { position:absolute; left:0; right:0; height:2px; background:#22d3ee;
+    box-shadow:0 0 8px rgba(34,211,238,.7); transition:bottom .05s linear; }
   .clutchArrow { position:absolute; left:-9px; width:0; height:0; transform:translateY(50%);
     border-top:7px solid transparent; border-bottom:7px solid transparent;
     border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
@@ -210,7 +212,11 @@ window.FIREBASE_CONFIG = {
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
       <div class="pedalValue" id="tClutchVal">100%</div>
       <div class="clutchTrackWrap">
-        <div class="track" id="tClutchTrack"><div class="ticks" id="tClutchTicks"></div><div class="fill clutch" id="tClutchFill" style="height:100%"></div></div>
+        <div class="track" id="tClutchTrack">
+          <div class="ticks" id="tClutchTicks"></div>
+          <div class="clutchVividLayer" id="tClutchVivid" style="clip-path:inset(0% 0 0 0)"></div>
+          <div class="clutchMarkersLayer" id="tClutchMarkers"></div>
+        </div>
         <div class="clutchArrow" id="tClutchArrow" style="bottom:100%"></div>
       </div>
       <button class="zeroBtn" id="tClutchZeroBtn" onpointerdown="toggleClutchExtreme()">Ελεύθερος</button>
@@ -262,7 +268,11 @@ window.FIREBASE_CONFIG = {
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
       <div class="pedalValue" id="sClutchVal">100%</div>
       <div class="clutchTrackWrap">
-        <div class="track"><div class="ticks" id="sClutchTicks"></div><div class="fill clutch" id="sClutchFill" style="height:100%"></div></div>
+        <div class="track">
+          <div class="ticks" id="sClutchTicks"></div>
+          <div class="clutchVividLayer" id="sClutchVivid" style="clip-path:inset(0% 0 0 0)"></div>
+          <div class="clutchMarkersLayer" id="sClutchMarkers"></div>
+        </div>
         <div class="clutchArrow" id="sClutchArrow" style="bottom:100%"></div>
       </div>
     </div>
@@ -310,38 +320,44 @@ let { low: CLUTCH_ZONE_LOW, high: CLUTCH_ZONE_HIGH } = loadClutchZone();
 
 function addClutchZoneMarkers(prefix) {
   const ticks = document.getElementById(prefix + 'ClutchTicks');
-  if (!ticks) return;
-  const pressedBand = document.createElement('div');
-  pressedBand.className = 'zoneBandPressed'; pressedBand.id = prefix + 'ClutchBandPressed';
-  ticks.appendChild(pressedBand);
-  const biteBand = document.createElement('div');
-  biteBand.className = 'zoneBandBite'; biteBand.id = prefix + 'ClutchBandBite';
-  ticks.appendChild(biteBand);
-  const releasedBand = document.createElement('div');
-  releasedBand.className = 'zoneBandReleased'; releasedBand.id = prefix + 'ClutchBandReleased';
-  ticks.appendChild(releasedBand);
+  const vivid = document.getElementById(prefix + 'ClutchVivid');
+  const markers = document.getElementById(prefix + 'ClutchMarkers');
+  if (!ticks || !vivid || !markers) return;
+  ['Pressed', 'Bite', 'Released'].forEach(zone => {
+    const pale = document.createElement('div');
+    pale.className = 'zoneBand' + zone; pale.id = prefix + 'ClutchPale' + zone;
+    ticks.appendChild(pale);
+    const viv = document.createElement('div');
+    viv.className = 'zoneBand' + zone; viv.id = prefix + 'ClutchVivid' + zone;
+    vivid.appendChild(viv);
+  });
   const lowLine = document.createElement('div');
   lowLine.className = 'zoneMarker'; lowLine.id = prefix + 'ClutchMarkerLow';
-  ticks.appendChild(lowLine);
+  markers.appendChild(lowLine);
   const highLine = document.createElement('div');
   highLine.className = 'zoneMarker'; highLine.id = prefix + 'ClutchMarkerHigh';
-  ticks.appendChild(highLine);
+  markers.appendChild(highLine);
   const label = document.createElement('div');
   label.className = 'zoneLabel'; label.id = prefix + 'ClutchZoneLabel';
   label.textContent = 'ΗΜΙΣΥΜΠΛΕΞΗ';
-  ticks.appendChild(label);
+  markers.appendChild(label);
+  const levelLine = document.createElement('div');
+  levelLine.className = 'clutchLevelLine'; levelLine.id = prefix + 'ClutchLevelLine';
+  markers.appendChild(levelLine);
   updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
 }
 function updateClutchZoneMarkers(prefix, low, high) {
-  const pressedBand = document.getElementById(prefix + 'ClutchBandPressed');
-  const biteBand = document.getElementById(prefix + 'ClutchBandBite');
-  const releasedBand = document.getElementById(prefix + 'ClutchBandReleased');
+  const bounds = { Pressed: [0, low], Bite: [low, high], Released: [high, 100] };
+  Object.keys(bounds).forEach(zone => {
+    const [b0, b1] = bounds[zone];
+    const pale = document.getElementById(prefix + 'ClutchPale' + zone);
+    const viv = document.getElementById(prefix + 'ClutchVivid' + zone);
+    if (pale) { pale.style.bottom = b0 + '%'; pale.style.height = Math.max(0, b1 - b0) + '%'; }
+    if (viv)  { viv.style.bottom = b0 + '%';  viv.style.height  = Math.max(0, b1 - b0) + '%'; }
+  });
   const lowLine = document.getElementById(prefix + 'ClutchMarkerLow');
   const highLine = document.getElementById(prefix + 'ClutchMarkerHigh');
   const label = document.getElementById(prefix + 'ClutchZoneLabel');
-  if (pressedBand)  { pressedBand.style.bottom = '0%';   pressedBand.style.height = low + '%'; }
-  if (biteBand)     { biteBand.style.bottom = low + '%'; biteBand.style.height = Math.max(0, high - low) + '%'; }
-  if (releasedBand) { releasedBand.style.bottom = high + '%'; releasedBand.style.height = Math.max(0, 100 - high) + '%'; }
   if (lowLine) lowLine.style.bottom = low + '%';
   if (highLine) highLine.style.bottom = high + '%';
   if (label) label.style.bottom = ((low + high) / 2) + '%';   // κεντραρισμένο στο μέσο της ζώνης
@@ -358,13 +374,19 @@ function loadClutchColors() {
   return { pressed: '#6b7785', bite: '#f2b134', released: '#a78bfa' };
 }
 let CLUTCH_COLORS = loadClutchColors();
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
 function applyClutchColors(prefix, colors) {
-  const p = document.getElementById(prefix + 'ClutchBandPressed');
-  const b = document.getElementById(prefix + 'ClutchBandBite');
-  const r = document.getElementById(prefix + 'ClutchBandReleased');
-  if (p) p.style.background = colors.pressed;
-  if (b) b.style.background = colors.bite;
-  if (r) r.style.background = colors.released;
+  const map = { pressed: 'Pressed', bite: 'Bite', released: 'Released' };
+  Object.keys(map).forEach(key => {
+    const pale = document.getElementById(prefix + 'ClutchPale' + map[key]);
+    const viv = document.getElementById(prefix + 'ClutchVivid' + map[key]);
+    if (pale) pale.style.background = hexToRgba(colors[key], 0.28);   // αχνή, βασική εμφάνιση
+    if (viv) viv.style.background = colors[key];                     // ζωηρή, αποκαλύπτεται με clip-path
+  });
 }
 applyClutchColors('t', CLUTCH_COLORS);
 applyClutchColors('s', CLUTCH_COLORS);
@@ -725,8 +747,8 @@ function renderTeacher() {
   document.getElementById('tGasVal').textContent = state.gas + '%';
   document.getElementById('tBrakeFill').style.height = state.brake + '%';
   document.getElementById('tBrakeVal').textContent = state.brake + '%';
-  const tClutchFill = document.getElementById('tClutchFill');
-  tClutchFill.style.height = state.clutch + '%';
+  document.getElementById('tClutchVivid').style.clipPath = 'inset(' + (100 - state.clutch) + '% 0 0 0)';
+  document.getElementById('tClutchLevelLine').style.bottom = state.clutch + '%';
   document.getElementById('tClutchArrow').style.bottom = state.clutch + '%';
   document.getElementById('tClutchZeroBtn').textContent = state.clutch >= 90 ? 'Πατημένος' : 'Ελεύθερος';
   document.getElementById('tClutchVal').textContent = state.clutch + '%';
@@ -749,8 +771,8 @@ function renderStudent(gas, brake, clutch, gear) {
   document.getElementById('sGasVal').textContent = Math.round(gas) + '%';
   document.getElementById('sBrakeFill').style.height = brake + '%';
   document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
-  const sClutchFill = document.getElementById('sClutchFill');
-  sClutchFill.style.height = clutch + '%';
+  document.getElementById('sClutchVivid').style.clipPath = 'inset(' + (100 - clutch) + '% 0 0 0)';
+  document.getElementById('sClutchLevelLine').style.bottom = clutch + '%';
   document.getElementById('sClutchArrow').style.bottom = clutch + '%';
   document.getElementById('sClutchVal').textContent = Math.round(clutch) + '%';
   if (gear) {
