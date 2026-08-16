@@ -72,7 +72,14 @@
     border-top:7px solid transparent; border-bottom:7px solid transparent;
     border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
     transition:bottom .05s linear; }
-  .clutchColorRow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:6px 14px; }
+  .clutchColorRow { display:flex; align-items:center; gap:8px; padding:6px 14px; }
+  .clutchColorRow .czLabel { flex:0 0 78px; text-align:left; white-space:nowrap;
+    overflow:hidden; text-overflow:ellipsis; }
+  .czHexInput { flex:1; min-width:0; font-family:'SF Mono',Menlo,Consolas,monospace; font-size:12px;
+    color:var(--text); letter-spacing:.5px; padding:7px 6px; border-radius:6px; border:1px solid var(--line);
+    background:var(--panel); text-align:center; text-transform:uppercase; }
+  .czHexInput:focus { outline:none; border-color:#5b9bd9; }
+  .czHexInput.invalid { border-color:#ff453a; color:#ff9a91; }
   input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
     background:none; padding:2px; cursor:pointer; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
@@ -229,14 +236,20 @@ window.FIREBASE_CONFIG = {
     <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchColorRow">
       <span class="czLabel">Πατημένος</span>
+      <input type="text" class="czHexInput" id="clutchHexPressed" value="#6B7785" maxlength="7"
+        onfocus="this.select()" oninput="onClutchHexInput('pressed', this)">
       <input type="color" id="clutchColorPressed" value="#6b7785" oninput="setClutchZoneColor('pressed', this.value)">
     </div>
     <div class="clutchColorRow">
       <span class="czLabel">Ημισύμπλεξη</span>
+      <input type="text" class="czHexInput" id="clutchHexBite" value="#F2B134" maxlength="7"
+        onfocus="this.select()" oninput="onClutchHexInput('bite', this)">
       <input type="color" id="clutchColorBite" value="#f2b134" oninput="setClutchZoneColor('bite', this.value)">
     </div>
     <div class="clutchColorRow">
       <span class="czLabel">Ελεύθερος</span>
+      <input type="text" class="czHexInput" id="clutchHexReleased" value="#A78BFA" maxlength="7"
+        onfocus="this.select()" oninput="onClutchHexInput('released', this)">
       <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
     </div>
   </div>
@@ -437,16 +450,39 @@ function applyClutchColors(prefix, colors) {
     if (viv) viv.style.background = colors[key];                     // ζωηρή, αποκαλύπτεται με clip-path
   });
 }
+function updateClutchHexInputs(colors) {
+  ['pressed', 'bite', 'released'].forEach(key => {
+    const input = document.getElementById('clutchHex' + key.charAt(0).toUpperCase() + key.slice(1));
+    if (input && document.activeElement !== input) input.value = colors[key].toUpperCase();
+  });
+}
 applyClutchColors('t', CLUTCH_COLORS);
 applyClutchColors('s', CLUTCH_COLORS);
 document.getElementById('clutchColorPressed').value = CLUTCH_COLORS.pressed;
 document.getElementById('clutchColorBite').value = CLUTCH_COLORS.bite;
 document.getElementById('clutchColorReleased').value = CLUTCH_COLORS.released;
+updateClutchHexInputs(CLUTCH_COLORS);
 window.setClutchZoneColor = function(which, hex) {
   CLUTCH_COLORS = { ...CLUTCH_COLORS, [which]: hex };
   localStorage.setItem('pedalGuideClutchColors', JSON.stringify(CLUTCH_COLORS));
   applyClutchColors('t', CLUTCH_COLORS);
+  updateClutchHexInputs(CLUTCH_COLORS);
   sendNow();   // άμεση ενημέρωση μαθητή
+};
+// Πληκτρολόγηση ή επικόλληση κωδικού hex απευθείας στο πεδίο
+window.onClutchHexInput = function(which, inputEl) {
+  let val = inputEl.value.trim();
+  if (val && !val.startsWith('#')) val = '#' + val;
+  const isValid = /^#[0-9a-fA-F]{6}$/.test(val);
+  inputEl.classList.toggle('invalid', val.length > 1 && !isValid);
+  if (isValid) {
+    const colorInput = document.getElementById('clutchColor' + which.charAt(0).toUpperCase() + which.slice(1));
+    if (colorInput) colorInput.value = val;
+    CLUTCH_COLORS = { ...CLUTCH_COLORS, [which]: val };
+    localStorage.setItem('pedalGuideClutchColors', JSON.stringify(CLUTCH_COLORS));
+    applyClutchColors('t', CLUTCH_COLORS);
+    sendNow();
+  }
 };
 
 // Κουμπιά +/- στο πάνελ ρυθμίσεων του δασκάλου
