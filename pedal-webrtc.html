@@ -98,6 +98,28 @@
   #studentScreen .gearLabel { font-size:12px; color:var(--muted); letter-spacing:2px; }
   #studentScreen .gearValue { font-size:64px; font-weight:800; line-height:1.05; color:#a9d6ff;
     text-shadow:0 0 20px rgba(91,155,217,.5); transition:color .15s, transform .15s; }
+  .handbrakeFloat { position:absolute; top:52px; right:10px; z-index:15;
+    background:rgba(26,32,39,.92); border:1px solid var(--line); border-radius:14px;
+    padding:6px 10px 8px; display:flex; flex-direction:column; align-items:center; gap:2px;
+    box-shadow:0 6px 18px rgba(0,0,0,.4); }
+  .handbrakeFloatLabel { font-size:9px; color:var(--muted); letter-spacing:1px; font-weight:700; }
+  .handbrakeFloat .handbrakeControl { transform:scale(.8); margin:-4px 0; }
+  #studentScreen .handbrakeFloat .handbrakeControl { transform:scale(.9); }
+  .handbrakeControl { display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .hbLight { width:9px; height:9px; border-radius:50%; background:#3a1216;
+    transition:background .15s, box-shadow .15s; }
+  .hbLight.on { background:#ff453a; box-shadow:0 0 10px rgba(255,69,58,.85), 0 0 4px #ff453a; }
+  .hbBase { position:relative; width:50px; height:46px; }
+  .hbBase::before { content:''; position:absolute; bottom:0; left:50%; transform:translateX(-50%);
+    width:34px; height:8px; border-radius:4px; background:#2c343d; border:1px solid var(--line); }
+  .hbLever { position:absolute; left:50%; bottom:6px; width:6px; height:36px; border-radius:3px;
+    background:linear-gradient(to top,#8a97a5,#c3ccd6); transform-origin:bottom center;
+    transform:translateX(-50%) rotate(55deg); transition:transform .28s cubic-bezier(.34,1.4,.64,1); }
+  .hbLever.engaged { transform:translateX(-50%) rotate(8deg); }
+  .hbKnob { position:absolute; top:-6px; left:50%; transform:translateX(-50%); width:13px; height:13px;
+    border-radius:50%; background:#e8edf2; border:1px solid var(--line); }
+  .hbStateText { font-size:12px; font-weight:700; color:var(--muted); min-width:52px; text-align:center; }
+  .hbStateText.engaged { color:#ff9a91; }
   #studentScreen .gearValue.pulse { animation:gearPulse .55s ease; }
   @keyframes gearPulse {
     0%   { transform:scale(1);    color:#a9d6ff; }
@@ -255,6 +277,14 @@ window.FIREBASE_CONFIG = {
     <button class="gearBtn" data-gear="5" onpointerdown="setGear('5')">5</button>
     <button class="gearBtn" data-gear="ΟΠ" onpointerdown="setGear('ΟΠ')">ΟΠ</button>
   </div>
+  <div class="handbrakeFloat">
+    <div class="handbrakeFloatLabel">ΧΕΙΡΟΦΡΕΝΟ</div>
+    <div class="handbrakeControl" onpointerdown="toggleHandbrake()">
+      <div class="hbLight" id="tHbLight"></div>
+      <div class="hbBase"><div class="hbLever" id="tHbLever"><div class="hbKnob"></div></div></div>
+      <div class="hbStateText" id="tHbStateText">ΚΑΤΩ</div>
+    </div>
+  </div>
 </div>
 
 <!-- ---------- Οθόνη μαθητή ---------- -->
@@ -272,6 +302,14 @@ window.FIREBASE_CONFIG = {
   <div class="gearWrap">
     <div class="gearLabel">ΤΑΧΥΤΗΤΑ</div>
     <div class="gearValue" id="sGearVal">Ν</div>
+  </div>
+  <div class="handbrakeFloat">
+    <div class="handbrakeFloatLabel">ΧΕΙΡΟΦΡΕΝΟ</div>
+    <div class="handbrakeControl">
+      <div class="hbLight" id="sHbLight"></div>
+      <div class="hbBase"><div class="hbLever" id="sHbLever"><div class="hbKnob"></div></div></div>
+      <div class="hbStateText" id="sHbStateText">ΚΑΤΩ</div>
+    </div>
   </div>
   <div class="barsArea">
     <div class="pedalCol" id="sClutchCol">
@@ -445,7 +483,7 @@ function loadVisiblePedals() {
   } catch (e) {}
   return { gas: true, brake: true, clutch: true };
 }
-const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν',
+const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν', handbrake: false,
   alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off'),
   visible: loadVisiblePedals() };
 let role = null, pc = null, channel = null;
@@ -569,6 +607,49 @@ function announceGearChange(gear) {
   speakGear(gear);
 }
 
+// ---------- Χειρόφρενο ----------
+function updateHandbrakeUI(prefix, engaged) {
+  const lever = document.getElementById(prefix + 'HbLever');
+  const light = document.getElementById(prefix + 'HbLight');
+  const text = document.getElementById(prefix + 'HbStateText');
+  if (lever) lever.classList.toggle('engaged', engaged);
+  if (light) light.classList.toggle('on', engaged);
+  if (text) { text.textContent = engaged ? 'ΠΑΝΩ' : 'ΚΑΤΩ'; text.classList.toggle('engaged', engaged); }
+}
+function speakHandbrake(engaged) {
+  if (!('speechSynthesis' in window)) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(engaged ? 'Χειρόφρενο πάνω' : 'Χειρόφρενο κάτω');
+    u.lang = 'el-GR';
+    if (greekVoice) u.voice = greekVoice;
+    u.rate = 1;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function playHandbrakeChime() {
+  ensureAudio();
+  const t0 = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator(), gain = audioCtx.createGain();
+  osc.type = 'sine'; osc.frequency.value = 660;
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(0.3, t0 + 0.01);
+  gain.gain.linearRampToValueAtTime(0, t0 + 0.16);
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start(t0); osc.stop(t0 + 0.18);
+}
+function announceHandbrakeChange(engaged) {
+  if (!(soundOn && teacherAlertsOn)) return;
+  playHandbrakeChime();
+  speakHandbrake(engaged);
+}
+let studentPrevHandbrake = null;
+window.toggleHandbrake = function() {
+  state.handbrake = !state.handbrake;
+  updateHandbrakeUI('t', state.handbrake);
+  sendNow();   // άμεση ενημέρωση μαθητή
+};
+
 window.startRole = function(r) {
   role = r;
   document.getElementById('roleScreen').classList.remove('active');
@@ -580,7 +661,7 @@ window.startRole = function(r) {
     ensureAudio();
     try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
   }
-  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); }
+  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); updateHandbrakeUI('t', state.handbrake); }
   if (!db) return;
   if (r === 'teacher') { renderTeacher(); startTeacher(); }
   else startStudent();
@@ -667,6 +748,10 @@ function startStudent() {
             CLUTCH_COLORS = v.clutchColors;
             applyClutchColors('s', CLUTCH_COLORS);
           }
+          const hb = !!v.handbrake;
+          updateHandbrakeUI('s', hb);
+          if (studentPrevHandbrake !== null && hb !== studentPrevHandbrake) announceHandbrakeChange(hb);
+          studentPrevHandbrake = hb;
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -694,7 +779,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS }));
   }
 }
 function send() {
