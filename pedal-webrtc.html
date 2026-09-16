@@ -82,6 +82,10 @@
   .czHexInput.invalid { border-color:#ff453a; color:#ff9a91; }
   input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
     background:none; padding:2px; cursor:pointer; }
+  .obdDebugBox { margin:6px 14px 0; height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch;
+    background:#0d1216; border:1px solid var(--line); border-radius:10px; padding:6px 8px;
+    font-family:'SF Mono',Menlo,Consolas,monospace; font-size:10px; color:#8fd18f; line-height:1.4; }
+  .obdDebugBox div { white-space:pre-wrap; word-break:break-all; border-bottom:1px solid rgba(255,255,255,.05); padding:1px 0; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
@@ -273,6 +277,11 @@ window.FIREBASE_CONFIG = {
       <input type="text" class="czHexInput" id="clutchHexReleased" value="#A78BFA" maxlength="7"
         onfocus="this.select()" oninput="onClutchHexInput('released', this)">
       <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
+    </div>
+    <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
+    <div class="obdDebugBox" id="obdDebugLog"></div>
+    <div style="display:flex; justify-content:center; padding:6px 14px 0;">
+      <button class="stepBtn" style="width:auto; padding:8px 16px;" onpointerdown="document.getElementById('obdDebugLog').innerHTML=''">Καθαρισμός</button>
     </div>
   </div>
   <div class="barsArea">
@@ -800,6 +809,18 @@ const OBD_CANDIDATE_SERVICES = [
   '6e400001-b5a3-f393-e0a9-e50e24dcca9e'
 ];
 let obdDevice = null, obdServer = null, obdWriteChar = null, obdNotifyChar = null;
+function obdLog(msg) {
+  console.log('[OBD]', msg);
+  const el = document.getElementById('obdDebugLog');
+  if (!el) return;
+  const line = document.createElement('div');
+  const t = new Date();
+  const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
+  line.textContent = ts + '  ' + msg;
+  el.appendChild(line);
+  while (el.children.length > 60) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
 let obdRxBuffer = '', obdConnected = false, obdPollTimer = null;
 
 function setObdBtnState(cls, label) {
@@ -811,14 +832,16 @@ function setObdBtnState(cls, label) {
 }
 async function obdFindCharacteristics(server) {
   const services = await server.getPrimaryServices();
+  obdLog('Βρέθηκαν ' + services.length + ' GATT services');
   for (const service of services) {
     let chars;
-    try { chars = await service.getCharacteristics(); } catch (e) { continue; }
+    try { chars = await service.getCharacteristics(); } catch (e) { obdLog('  ' + service.uuid + ': σφάλμα ανάγνωσης characteristics'); continue; }
     let notifyChar = null, writeChar = null;
     for (const ch of chars) {
       if (ch.properties.notify || ch.properties.indicate) notifyChar = ch;
       if (ch.properties.write || ch.properties.writeWithoutResponse) writeChar = ch;
     }
+    obdLog('  ' + service.uuid + ' (' + chars.length + ' chars) notify=' + (notifyChar ? notifyChar.uuid : '-') + ' write=' + (writeChar ? writeChar.uuid : '-'));
     if (notifyChar && writeChar) return { notifyChar, writeChar };
   }
   return null;
@@ -838,15 +861,17 @@ function obdSendCommand(cmd, timeoutMs) {
       if (obdRxBuffer.includes('>')) {
         obdNotifyChar.removeEventListener('characteristicvaluechanged', onData);
         clearTimeout(timer);
+        obdLog(cmd + '  ->  ' + obdRxBuffer.replace(/[\r\n]/g, '|'));
         resolve(obdRxBuffer);
       }
     };
     const timer = setTimeout(() => {
       obdNotifyChar.removeEventListener('characteristicvaluechanged', onData);
+      obdLog(cmd + '  ->  (καμία απάντηση — timeout)');
       reject(new Error('timeout: ' + cmd));
     }, timeoutMs || 2000);
     obdNotifyChar.addEventListener('characteristicvaluechanged', onData);
-    obdWrite(cmd).catch(err => { clearTimeout(timer); reject(err); });
+    obdWrite(cmd).catch(err => { clearTimeout(timer); obdLog(cmd + '  ->  σφάλμα εγγραφής: ' + err); reject(err); });
   });
 }
 function parseRpmResponse(text) {
@@ -870,6 +895,8 @@ async function obdPollLoop() {
       state.rpm = Math.round(rpm);
       updateRpmGauge('t', state.rpm);
       sendNow();   // άμεση ενημέρωση μαθητή, χωρίς να περιμένουμε το keepalive
+    } else {
+      obdLog('  (η απάντηση ελήφθη αλλά δεν αναγνωρίστηκε ως RPM)');
     }
   } catch (e) {
     console.warn('OBD poll error:', e);
@@ -886,35 +913,45 @@ window.toggleObdConnection = async function() {
     obdConnected = false;
     clearTimeout(obdPollTimer);
     try { if (obdDevice && obdDevice.gatt.connected) obdDevice.gatt.disconnect(); } catch (e) {}
+    obdLog('Αποσύνδεση από τον χρήστη');
     setObdBtnState('', '🔌 OBD-II');
     return;
   }
   if (!navigator.bluetooth) {
+    obdLog('Το Web Bluetooth δεν υποστηρίζεται σε αυτόν τον browser');
     setObdBtnState('error', 'Μη διαθέσιμο');
     return;
   }
   try {
     setObdBtnState('connecting', 'Σύνδεση…');
+    obdLog('Αναζήτηση συσκευής Bluetooth…');
     obdDevice = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
       optionalServices: OBD_CANDIDATE_SERVICES
     });
+    obdLog('Επιλέχθηκε συσκευή: ' + (obdDevice.name || '(χωρίς όνομα)'));
     obdDevice.addEventListener('gattserverdisconnected', () => {
       obdConnected = false;
       clearTimeout(obdPollTimer);
+      obdLog('GATT αποσυνδέθηκε (απροσδόκητα)');
       setObdBtnState('error', 'Αποσυνδέθηκε');
     });
     obdServer = await obdDevice.gatt.connect();
+    obdLog('Συνδέθηκε GATT server');
     const found = await obdFindCharacteristics(obdServer);
-    if (!found) throw new Error('Δεν βρέθηκαν κατάλληλα characteristics');
+    if (!found) { obdLog('ΔΕΝ βρέθηκε ζεύγος notify/write σε κανένα service'); throw new Error('Δεν βρέθηκαν κατάλληλα characteristics'); }
     obdNotifyChar = found.notifyChar;
     obdWriteChar = found.writeChar;
+    obdLog('Επιλέχθηκαν -> notify: ' + obdNotifyChar.uuid + '  write: ' + obdWriteChar.uuid);
     await obdNotifyChar.startNotifications();
+    obdLog('startNotifications() OK — ξεκινά αρχικοποίηση ELM327…');
     await obdInitSequence();
     obdConnected = true;
     setObdBtnState('connected', '🔌 Συνδεδεμένο');
+    obdLog('Ξεκινά ερώτημα RPM (010C) κάθε 250ms…');
     obdPollLoop();
   } catch (err) {
+    obdLog('ΣΦΑΛΜΑ: ' + (err && err.message ? err.message : err));
     console.error('OBD connect error:', err);
     setObdBtnState('error', 'Σφάλμα σύνδεσης');
   }
