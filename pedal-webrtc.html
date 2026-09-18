@@ -45,7 +45,7 @@
   .pedalLabel.brake { color:var(--brake); } .pedalLabel.gas { color:var(--gas); } .pedalLabel.clutch { color:var(--clutch); }
   .pedalValue { text-align:center; font-size:26px; font-weight:800;
     font-variant-numeric:tabular-nums; flex:0 0 auto; }
-  .track { flex:1; position:relative; border-radius:18px; overflow:hidden;
+  .track { flex:1; position:relative; border-radius:5px; overflow:hidden;
     background:var(--panel); border:1px solid var(--line); min-height:0; }
   .track .ticks { position:absolute; inset:0; pointer-events:none; }
   .track .ticks div { position:absolute; left:0; right:0; height:1px; background:rgba(255,255,255,.09); }
@@ -68,7 +68,7 @@
     pointer-events:none; }
   .clutchLevelLine { position:absolute; left:0; right:0; height:2px; background:#22d3ee;
     box-shadow:0 0 8px rgba(34,211,238,.7); transition:bottom .05s linear; }
-  .clutchArrow { position:absolute; right:-9px; width:0; height:0; transform:translateY(50%);
+  .clutchArrow { position:absolute; right:-6px; width:0; height:0; transform:translateY(50%);
     border-top:7px solid transparent; border-bottom:7px solid transparent;
     border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
     transition:bottom .05s linear; }
@@ -89,17 +89,23 @@
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
-  .clutchPosRow { display:flex; justify-content:center; gap:5px; flex:0 0 auto; padding:2px 0; }
-  .clutchPosNum { width:20px; height:20px; border-radius:50%; display:flex; align-items:center;
-    justify-content:center; font-size:11px; font-weight:700; color:var(--muted); background:var(--panel);
-    border:1px solid var(--line); transition:background .2s, color .2s, box-shadow .2s; }
-  .clutchPosNum.active { color:#fff; background:#22d3ee; border-color:#22d3ee;
-    box-shadow:0 0 10px rgba(34,211,238,.6); }
-  .clutchPosNum.pulse { animation:clutchPosPulse .5s ease; }
+  .clutchPosBtnRow { display:flex; gap:4px; width:100%; flex:0 0 auto; }
+  .clutchPosBtn { flex:1; padding:9px 0; border-radius:10px; border:1px solid var(--line);
+    background:var(--panel); color:var(--muted); font-size:13px; font-weight:700; cursor:pointer; }
+  .clutchPosBtn:active { background:#232b34; }
+  .clutchPosBtn.active { background:#144a52; border-color:#22d3ee; color:#a9f0ff; }
+  .clutchPosBadge { position:absolute; left:2px; width:16px; height:16px; border-radius:50%;
+    transform:translateY(50%); display:flex; align-items:center; justify-content:center;
+    font-size:9px; font-weight:800; color:var(--muted); background:rgba(13,18,22,.8);
+    border:1px solid var(--line); transition:background .2s, color .2s, box-shadow .2s;
+    pointer-events:none; }
+  .clutchPosBadge.active { color:#fff; background:#22d3ee; border-color:#22d3ee;
+    box-shadow:0 0 10px rgba(34,211,238,.7); }
+  .clutchPosBadge.pulse { animation:clutchPosPulse .5s ease; }
   @keyframes clutchPosPulse {
-    0% { transform:scale(1); }
-    40% { transform:scale(1.5); box-shadow:0 0 18px rgba(34,211,238,.95); }
-    100% { transform:scale(1); }
+    0% { transform:translateY(50%) scale(1); }
+    40% { transform:translateY(50%) scale(1.55); box-shadow:0 0 18px rgba(34,211,238,.95); }
+    100% { transform:translateY(50%) scale(1); }
   }
   #studentScreen .pedalValue { font-size:38px; }
   #hint { text-align:center; color:var(--muted); font-size:12px; padding:6px 14px 10px; flex:0 0 auto; }
@@ -271,6 +277,19 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchHighVal">70%</span>
       <button class="stepBtn" onpointerdown="adjustClutchZone('high',5)">+</button>
     </div>
+    <div class="gearWrapLabel">ΘΕΣΕΙΣ 2 &amp; 3 (% ΔΙΑΔΡΟΜΗΣ ΣΥΜΠΛΕΚΤΗ)</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 2</span>
+      <button class="stepBtn" onpointerdown="adjustClutchPosition23(2,-5)">−</button>
+      <span class="czVal" id="clutchPos2Val">30%</span>
+      <button class="stepBtn" onpointerdown="adjustClutchPosition23(2,5)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 3</span>
+      <button class="stepBtn" onpointerdown="adjustClutchPosition23(3,-5)">−</button>
+      <span class="czVal" id="clutchPos3Val">70%</span>
+      <button class="stepBtn" onpointerdown="adjustClutchPosition23(3,5)">+</button>
+    </div>
     <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchColorRow">
       <span class="czLabel">Πατημένος</span>
@@ -290,6 +309,31 @@ window.FIREBASE_CONFIG = {
         onfocus="this.select()" oninput="onClutchHexInput('released', this)">
       <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
     </div>
+    <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ ΜΕΤΑΒΑΣΗΣ ΑΝΑ ΘΕΣΗ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 1</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(1,-50)">−</button>
+      <span class="czVal" id="clutchDur1">420ms</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(1,50)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 2</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(2,-50)">−</button>
+      <span class="czVal" id="clutchDur2">420ms</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(2,50)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 3</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(3,-50)">−</button>
+      <span class="czVal" id="clutchDur3">420ms</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(3,50)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Θέση 4</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(4,-50)">−</button>
+      <span class="czVal" id="clutchDur4">420ms</span>
+      <button class="stepBtn" onpointerdown="adjustClutchDuration(4,50)">+</button>
+    </div>
     <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
     <div class="obdDebugBox" id="obdDebugLog"></div>
     <div style="display:flex; justify-content:center; padding:6px 14px 0;">
@@ -308,12 +352,11 @@ window.FIREBASE_CONFIG = {
         </div>
         <div class="clutchArrow" id="tClutchArrow" style="bottom:100%"></div>
       </div>
-      <button class="zeroBtn" id="tClutchZeroBtn" onpointerdown="advanceClutchPosition()">➜ Επόμενη</button>
-      <div class="clutchPosRow" id="tClutchPosRow">
-        <span class="clutchPosNum">1</span>
-        <span class="clutchPosNum">2</span>
-        <span class="clutchPosNum">3</span>
-        <span class="clutchPosNum">4</span>
+      <div class="clutchPosBtnRow" id="tClutchPosBtnRow">
+        <button class="clutchPosBtn" onpointerdown="selectClutchPosition(1)">1</button>
+        <button class="clutchPosBtn" onpointerdown="selectClutchPosition(2)">2</button>
+        <button class="clutchPosBtn" onpointerdown="selectClutchPosition(3)">3</button>
+        <button class="clutchPosBtn" onpointerdown="selectClutchPosition(4)">4</button>
       </div>
     </div>
     <div class="pedalCol" id="tBrakeCol">
@@ -411,12 +454,6 @@ window.FIREBASE_CONFIG = {
         </div>
         <div class="clutchArrow" id="sClutchArrow" style="bottom:100%"></div>
       </div>
-      <div class="clutchPosRow" id="sClutchPosRow">
-        <span class="clutchPosNum">1</span>
-        <span class="clutchPosNum">2</span>
-        <span class="clutchPosNum">3</span>
-        <span class="clutchPosNum">4</span>
-      </div>
     </div>
     <div class="pedalCol" id="sBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
@@ -460,6 +497,20 @@ function loadClutchZone() {
 }
 let { low: CLUTCH_ZONE_LOW, high: CLUTCH_ZONE_HIGH } = loadClutchZone();
 
+// Θέσεις 2 και 3 του συστήματος αρίθμησης — ανεξάρτητες από τα όρια της ζώνης ημισύμπλεξης
+function loadClutchPositions23() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideClutchPositions23'));
+    if (saved && typeof saved.pos2 === 'number' && typeof saved.pos3 === 'number') {
+      const pos2 = Math.min(95, Math.max(0, Math.round(saved.pos2)));
+      const pos3 = Math.min(100, Math.max(pos2 + 5, Math.round(saved.pos3)));
+      return { pos2, pos3 };
+    }
+  } catch (e) {}
+  return { pos2: 30, pos3: 70 };
+}
+let { pos2: CLUTCH_POS2, pos3: CLUTCH_POS3 } = loadClutchPositions23();
+
 function addClutchZoneMarkers(prefix) {
   const ticks = document.getElementById(prefix + 'ClutchTicks');
   const vivid = document.getElementById(prefix + 'ClutchVivid');
@@ -486,7 +537,26 @@ function addClutchZoneMarkers(prefix) {
   const levelLine = document.createElement('div');
   levelLine.className = 'clutchLevelLine'; levelLine.id = prefix + 'ClutchLevelLine';
   markers.appendChild(levelLine);
+  for (let i = 1; i <= 4; i++) {
+    const badge = document.createElement('div');
+    badge.className = 'clutchPosBadge'; badge.id = prefix + 'ClutchPosBadge' + i;
+    badge.textContent = i;
+    markers.appendChild(badge);
+  }
   updateClutchZoneMarkers(prefix, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH);
+  updateClutchPosBadgePositions(prefix);
+}
+function clutchBadgePercent(val) { return Math.max(6, Math.min(94, val)); }   // αποφυγή αποκοπής στις άκρες
+function updateClutchPosBadgePositions(prefix) {
+  const badge1 = document.getElementById(prefix + 'ClutchPosBadge1');
+  const badge2 = document.getElementById(prefix + 'ClutchPosBadge2');
+  const badge3 = document.getElementById(prefix + 'ClutchPosBadge3');
+  const badge4 = document.getElementById(prefix + 'ClutchPosBadge4');
+  // Σταθερό κενό 2px από κάτω/πάνω, ίσο με το left:2px — όχι ποσοστό, ώστε να είναι πάντα ίδιο οπτικά
+  if (badge1) badge1.style.bottom = '10px';                 // 2px κενό + 8px (μισό ύψος badge)
+  if (badge4) badge4.style.bottom = 'calc(100% - 10px)';     // ίδιο κενό από την κορυφή
+  if (badge2) badge2.style.bottom = clutchBadgePercent(CLUTCH_POS2) + '%';
+  if (badge3) badge3.style.bottom = clutchBadgePercent(CLUTCH_POS3) + '%';
 }
 function updateClutchZoneMarkers(prefix, low, high) {
   const bounds = { Pressed: [0, low], Bite: [low, high], Released: [high, 100] };
@@ -580,6 +650,21 @@ window.adjustClutchZone = function(which, delta) {
 };
 document.getElementById('clutchLowVal').textContent = CLUTCH_ZONE_LOW + '%';
 document.getElementById('clutchHighVal').textContent = CLUTCH_ZONE_HIGH + '%';
+
+// Θέσεις 2/3 — εντελώς ανεξάρτητες από τη ζώνη ημισύμπλεξης παραπάνω
+window.adjustClutchPosition23 = function(which, delta) {
+  let pos2 = CLUTCH_POS2, pos3 = CLUTCH_POS3;
+  if (which === 2) pos2 = Math.min(pos3 - 5, Math.max(0, pos2 + delta));
+  else pos3 = Math.max(pos2 + 5, Math.min(100, pos3 + delta));
+  CLUTCH_POS2 = pos2; CLUTCH_POS3 = pos3;
+  localStorage.setItem('pedalGuideClutchPositions23', JSON.stringify({ pos2, pos3 }));
+  document.getElementById('clutchPos2Val').textContent = pos2 + '%';
+  document.getElementById('clutchPos3Val').textContent = pos3 + '%';
+  updateClutchPosBadgePositions('t');
+  sendNow();         // άμεση ενημέρωση μαθητή
+};
+document.getElementById('clutchPos2Val').textContent = CLUTCH_POS2 + '%';
+document.getElementById('clutchPos3Val').textContent = CLUTCH_POS3 + '%';
 
 // ---------- Firebase (μόνο για χειραψία) ----------
 let db = null;
@@ -1093,6 +1178,11 @@ function startStudent() {
             clutchPosIndex = v.clutchPosIndex;
             updateClutchPosUI('s', clutchPosIndex, true);
           }
+          if (typeof v.clutchPos2 === 'number' && typeof v.clutchPos3 === 'number' &&
+              (v.clutchPos2 !== CLUTCH_POS2 || v.clutchPos3 !== CLUTCH_POS3)) {
+            CLUTCH_POS2 = v.clutchPos2; CLUTCH_POS3 = v.clutchPos3;
+            updateClutchPosBadgePositions('s');
+          }
           updateRpmGauge('s', Math.round(v.rpm || 0));
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
@@ -1121,7 +1211,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3 }));
   }
 }
 function send() {
@@ -1150,11 +1240,10 @@ const zeroAnim = { gas: null, brake: null, clutch: null };
 function cancelZeroAnim(which) {
   if (zeroAnim[which]) { cancelAnimationFrame(zeroAnim[which]); zeroAnim[which] = null; }
 }
-window.zeroPedal = function(which, target = 0) {
+window.zeroPedal = function(which, target = 0, duration = 420) {
   cancelZeroAnim(which);
   const startVal = state[which];
   if (startVal === target) { setPedal(which, target); return; }
-  const duration = 420;              // ms — ρεαλιστική ταχύτητα αφήματος πεντάλ
   const startTime = performance.now();
   const delta = target - startVal;
   function step(now) {
@@ -1169,29 +1258,56 @@ window.zeroPedal = function(which, target = 0) {
 
 // ---------- 4 θέσεις συμπλέκτη: 1 Πατημένος, 2 Αρχή ημισύμπλεξης, 3 Τέλος ημισύμπλεξης, 4 Ελεύθερος ----------
 function clutchPositions() {
-  return [0, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH, 100];
+  return [0, CLUTCH_POS2, CLUTCH_POS3, 100];
 }
 let clutchPosIndex = 3;   // ξεκινά στη θέση 4 (Ελεύθερος), αφού η αρχική τιμή του συμπλέκτη είναι 100
+function loadClutchDurations() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pedalGuideClutchDurations'));
+    if (saved && [1, 2, 3, 4].every(k => typeof saved[k] === 'number')) return saved;
+  } catch (e) {}
+  return { 1: 420, 2: 420, 3: 420, 4: 420 };
+}
+let CLUTCH_DURATIONS = loadClutchDurations();
+window.adjustClutchDuration = function(pos, delta) {
+  const next = Math.max(100, Math.min(2000, (CLUTCH_DURATIONS[pos] || 420) + delta));
+  CLUTCH_DURATIONS[pos] = next;
+  localStorage.setItem('pedalGuideClutchDurations', JSON.stringify(CLUTCH_DURATIONS));
+  const label = document.getElementById('clutchDur' + pos);
+  if (label) label.textContent = next + 'ms';
+};
+[1, 2, 3, 4].forEach(pos => {
+  const label = document.getElementById('clutchDur' + pos);
+  if (label) label.textContent = CLUTCH_DURATIONS[pos] + 'ms';
+});
 function updateClutchPosUI(prefix, index, pulse) {
-  const row = document.getElementById(prefix + 'ClutchPosRow');
-  if (!row) return;
-  const nums = row.querySelectorAll('.clutchPosNum');
-  nums.forEach((el, i) => {
-    el.classList.toggle('active', i === index);
-    if (i === index && pulse) {
-      el.classList.remove('pulse');
-      void el.offsetWidth;   // επανεκκίνηση animation
-      el.classList.add('pulse');
+  for (let i = 1; i <= 4; i++) {
+    const badge = document.getElementById(prefix + 'ClutchPosBadge' + i);
+    if (!badge) continue;
+    const isActive = (i - 1) === index;
+    badge.classList.toggle('active', isActive);
+    if (isActive && pulse) {
+      badge.classList.remove('pulse');
+      void badge.offsetWidth;   // επανεκκίνηση animation
+      badge.classList.add('pulse');
     }
+  }
+}
+function updateClutchPosButtons(index) {
+  document.querySelectorAll('#tClutchPosBtnRow .clutchPosBtn').forEach((btn, i) => {
+    btn.classList.toggle('active', i === index);
   });
 }
 updateClutchPosUI('t', clutchPosIndex, false);
 updateClutchPosUI('s', clutchPosIndex, false);
-window.advanceClutchPosition = function() {
-  clutchPosIndex = (clutchPosIndex + 1) % 4;
+updateClutchPosButtons(clutchPosIndex);
+window.selectClutchPosition = function(posNum) {
+  clutchPosIndex = posNum - 1;
   const target = clutchPositions()[clutchPosIndex];
+  const duration = CLUTCH_DURATIONS[posNum] || 420;
   updateClutchPosUI('t', clutchPosIndex, true);
-  zeroPedal('clutch', target);
+  updateClutchPosButtons(clutchPosIndex);
+  zeroPedal('clutch', target, duration);
   sendNow();
 };
 
