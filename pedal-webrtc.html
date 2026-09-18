@@ -89,6 +89,18 @@
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
+  .clutchPosRow { display:flex; justify-content:center; gap:5px; flex:0 0 auto; padding:2px 0; }
+  .clutchPosNum { width:20px; height:20px; border-radius:50%; display:flex; align-items:center;
+    justify-content:center; font-size:11px; font-weight:700; color:var(--muted); background:var(--panel);
+    border:1px solid var(--line); transition:background .2s, color .2s, box-shadow .2s; }
+  .clutchPosNum.active { color:#fff; background:#22d3ee; border-color:#22d3ee;
+    box-shadow:0 0 10px rgba(34,211,238,.6); }
+  .clutchPosNum.pulse { animation:clutchPosPulse .5s ease; }
+  @keyframes clutchPosPulse {
+    0% { transform:scale(1); }
+    40% { transform:scale(1.5); box-shadow:0 0 18px rgba(34,211,238,.95); }
+    100% { transform:scale(1); }
+  }
   #studentScreen .pedalValue { font-size:38px; }
   #hint { text-align:center; color:var(--muted); font-size:12px; padding:6px 14px 10px; flex:0 0 auto; }
 
@@ -296,7 +308,13 @@ window.FIREBASE_CONFIG = {
         </div>
         <div class="clutchArrow" id="tClutchArrow" style="bottom:100%"></div>
       </div>
-      <button class="zeroBtn" id="tClutchZeroBtn" onpointerdown="toggleClutchExtreme()">Ελεύθερος</button>
+      <button class="zeroBtn" id="tClutchZeroBtn" onpointerdown="advanceClutchPosition()">➜ Επόμενη</button>
+      <div class="clutchPosRow" id="tClutchPosRow">
+        <span class="clutchPosNum">1</span>
+        <span class="clutchPosNum">2</span>
+        <span class="clutchPosNum">3</span>
+        <span class="clutchPosNum">4</span>
+      </div>
     </div>
     <div class="pedalCol" id="tBrakeCol">
       <div class="pedalLabel brake">ΦΡΕΝΟ</div>
@@ -392,6 +410,12 @@ window.FIREBASE_CONFIG = {
           <div class="clutchMarkersLayer" id="sClutchMarkers"></div>
         </div>
         <div class="clutchArrow" id="sClutchArrow" style="bottom:100%"></div>
+      </div>
+      <div class="clutchPosRow" id="sClutchPosRow">
+        <span class="clutchPosNum">1</span>
+        <span class="clutchPosNum">2</span>
+        <span class="clutchPosNum">3</span>
+        <span class="clutchPosNum">4</span>
       </div>
     </div>
     <div class="pedalCol" id="sBrakeCol">
@@ -1065,6 +1089,10 @@ function startStudent() {
           updateHandbrakeUI('s', hb);
           if (studentPrevHandbrake !== null && hb !== studentPrevHandbrake) announceHandbrakeChange(hb);
           studentPrevHandbrake = hb;
+          if (typeof v.clutchPosIndex === 'number' && v.clutchPosIndex !== clutchPosIndex) {
+            clutchPosIndex = v.clutchPosIndex;
+            updateClutchPosUI('s', clutchPosIndex, true);
+          }
           updateRpmGauge('s', Math.round(v.rpm || 0));
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
@@ -1093,7 +1121,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex }));
   }
 }
 function send() {
@@ -1139,9 +1167,32 @@ window.zeroPedal = function(which, target = 0) {
   zeroAnim[which] = requestAnimationFrame(step);
 };
 
-// Κουμπί συμπλέκτη: δείχνει την επόμενη ενέργεια, όχι την τρέχουσα κατάσταση
-window.toggleClutchExtreme = function() {
-  zeroPedal('clutch', state.clutch >= 90 ? 0 : 100);
+// ---------- 4 θέσεις συμπλέκτη: 1 Πατημένος, 2 Αρχή ημισύμπλεξης, 3 Τέλος ημισύμπλεξης, 4 Ελεύθερος ----------
+function clutchPositions() {
+  return [0, CLUTCH_ZONE_LOW, CLUTCH_ZONE_HIGH, 100];
+}
+let clutchPosIndex = 3;   // ξεκινά στη θέση 4 (Ελεύθερος), αφού η αρχική τιμή του συμπλέκτη είναι 100
+function updateClutchPosUI(prefix, index, pulse) {
+  const row = document.getElementById(prefix + 'ClutchPosRow');
+  if (!row) return;
+  const nums = row.querySelectorAll('.clutchPosNum');
+  nums.forEach((el, i) => {
+    el.classList.toggle('active', i === index);
+    if (i === index && pulse) {
+      el.classList.remove('pulse');
+      void el.offsetWidth;   // επανεκκίνηση animation
+      el.classList.add('pulse');
+    }
+  });
+}
+updateClutchPosUI('t', clutchPosIndex, false);
+updateClutchPosUI('s', clutchPosIndex, false);
+window.advanceClutchPosition = function() {
+  clutchPosIndex = (clutchPosIndex + 1) % 4;
+  const target = clutchPositions()[clutchPosIndex];
+  updateClutchPosUI('t', clutchPosIndex, true);
+  zeroPedal('clutch', target);
+  sendNow();
 };
 
 window.setGear = function(g) {
@@ -1159,7 +1210,6 @@ function renderTeacher() {
   document.getElementById('tClutchVivid').style.clipPath = 'inset(' + (100 - state.clutch) + '% 0 0 0)';
   document.getElementById('tClutchLevelLine').style.bottom = state.clutch + '%';
   document.getElementById('tClutchArrow').style.bottom = state.clutch + '%';
-  document.getElementById('tClutchZeroBtn').textContent = state.clutch >= 90 ? 'Πατημένος' : 'Ελεύθερος';
   document.getElementById('tClutchVal').textContent = state.clutch + '%';
 
   // Οπτικό "κλείδωμα" γκαζιού/φρένου μεταξύ τους (ο συμπλέκτης είναι πάντα ελεύθερος)
