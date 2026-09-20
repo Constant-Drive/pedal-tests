@@ -67,7 +67,8 @@
     letter-spacing:.2px; color:#fff; text-shadow:0 0 3px #000,0 0 3px #000,0 1px 1px #000;
     pointer-events:none; }
   .clutchLevelLine { position:absolute; left:0; right:0; height:2px; background:#22d3ee;
-    box-shadow:0 0 8px rgba(34,211,238,.7); transition:bottom .05s linear; }
+    transform:translateY(50%); box-shadow:0 0 8px rgba(34,211,238,.7); transition:bottom .05s linear;
+    pointer-events:none; }
   .clutchArrow { position:absolute; right:-6px; width:0; height:0; transform:translateY(50%);
     border-top:7px solid transparent; border-bottom:7px solid transparent;
     border-right:10px solid #fff; filter:drop-shadow(0 0 4px #7dd3fc); pointer-events:none;
@@ -84,7 +85,8 @@
     background:none; padding:2px; cursor:pointer; }
   .obdDebugBox { margin:6px 14px 0; height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch;
     background:#0d1216; border:1px solid var(--line); border-radius:10px; padding:6px 8px;
-    font-family:'SF Mono',Menlo,Consolas,monospace; font-size:10px; color:#8fd18f; line-height:1.4; }
+    font-family:'SF Mono',Menlo,Consolas,monospace; font-size:10px; color:#8fd18f; line-height:1.4;
+    user-select:text; -webkit-user-select:text; touch-action:pan-y; }
   .obdDebugBox div { white-space:pre-wrap; word-break:break-all; border-bottom:1px solid rgba(255,255,255,.05); padding:1px 0; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
@@ -336,7 +338,8 @@ window.FIREBASE_CONFIG = {
     </div>
     <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
     <div class="obdDebugBox" id="obdDebugLog"></div>
-    <div style="display:flex; justify-content:center; padding:6px 14px 0;">
+    <div style="display:flex; justify-content:center; gap:8px; padding:6px 14px 0;">
+      <button class="stepBtn" style="width:auto; padding:8px 16px;" id="obdCopyBtn" onpointerdown="copyObdLog()">📋 Αντιγραφή όλων</button>
       <button class="stepBtn" style="width:auto; padding:8px 16px;" onpointerdown="document.getElementById('obdDebugLog').innerHTML=''">Καθαρισμός</button>
     </div>
   </div>
@@ -534,6 +537,14 @@ function addClutchZoneMarkers(prefix) {
   label.className = 'zoneLabel'; label.id = prefix + 'ClutchZoneLabel';
   label.textContent = 'ΗΜΙΣΥΜΠΛΕΞΗ';
   markers.appendChild(label);
+  const pressedLabel = document.createElement('div');
+  pressedLabel.className = 'zoneLabel'; pressedLabel.id = prefix + 'ClutchPressedLabel';
+  pressedLabel.textContent = 'ΑΠΟΣΥΜΠΛΕΞΗ';
+  markers.appendChild(pressedLabel);
+  const releasedLabel = document.createElement('div');
+  releasedLabel.className = 'zoneLabel'; releasedLabel.id = prefix + 'ClutchReleasedLabel';
+  releasedLabel.textContent = 'ΣΥΜΠΛΕΞΗ';
+  markers.appendChild(releasedLabel);
   const levelLine = document.createElement('div');
   levelLine.className = 'clutchLevelLine'; levelLine.id = prefix + 'ClutchLevelLine';
   markers.appendChild(levelLine);
@@ -547,6 +558,11 @@ function addClutchZoneMarkers(prefix) {
   updateClutchPosBadgePositions(prefix);
 }
 function clutchBadgePercent(val) { return Math.max(6, Math.min(94, val)); }   // αποφυγή αποκοπής στις άκρες
+function clutchLevelLinePos(val) {
+  if (val <= 1) return '2px';
+  if (val >= 99) return 'calc(100% - 2px)';
+  return val + '%';
+}
 function updateClutchPosBadgePositions(prefix) {
   const badge1 = document.getElementById(prefix + 'ClutchPosBadge1');
   const badge2 = document.getElementById(prefix + 'ClutchPosBadge2');
@@ -570,9 +586,13 @@ function updateClutchZoneMarkers(prefix, low, high) {
   const lowLine = document.getElementById(prefix + 'ClutchMarkerLow');
   const highLine = document.getElementById(prefix + 'ClutchMarkerHigh');
   const label = document.getElementById(prefix + 'ClutchZoneLabel');
+  const pressedLabel = document.getElementById(prefix + 'ClutchPressedLabel');
+  const releasedLabel = document.getElementById(prefix + 'ClutchReleasedLabel');
   if (lowLine) lowLine.style.bottom = low + '%';
   if (highLine) highLine.style.bottom = high + '%';
-  if (label) label.style.bottom = ((low + high) / 2) + '%';   // κεντραρισμένο στο μέσο της ζώνης
+  if (label) label.style.bottom = ((low + high) / 2) + '%';         // κεντραρισμένο στη ζώνη ημισύμπλεξης
+  if (pressedLabel) pressedLabel.style.bottom = (low / 2) + '%';             // κεντραρισμένο στο 0%-low
+  if (releasedLabel) releasedLabel.style.bottom = ((high + 100) / 2) + '%';  // κεντραρισμένο στο high-100%
 }
 addClutchZoneMarkers('t');
 addClutchZoneMarkers('s');
@@ -930,6 +950,23 @@ function obdLog(msg) {
   while (el.children.length > 60) el.removeChild(el.firstChild);
   el.scrollTop = el.scrollHeight;
 }
+window.copyObdLog = function() {
+  const el = document.getElementById('obdDebugLog');
+  const btn = document.getElementById('obdCopyBtn');
+  const text = el ? Array.from(el.children).map(d => d.textContent).join('\n') : '';
+  const showResult = (ok) => {
+    if (!btn) return;
+    const original = '📋 Αντιγραφή όλων';
+    btn.textContent = ok ? '✓ Αντιγράφηκε' : 'Δεν έγινε — επίλεξε χειροκίνητα';
+    setTimeout(() => { btn.textContent = original; }, 1500);
+  };
+  if (!text) { showResult(false); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => showResult(true)).catch(() => showResult(false));
+  } else {
+    showResult(false);
+  }
+};
 let obdRxBuffer = '', obdConnected = false, obdPollTimer = null;
 
 function setObdBtnState(cls, label) {
@@ -955,12 +992,18 @@ async function obdFindCharacteristics(server) {
   }
   return null;
 }
+let obdWriteChain = Promise.resolve();
 function obdWrite(cmd) {
   if (!obdWriteChar) return Promise.reject(new Error('no write characteristic'));
   const data = new TextEncoder().encode(cmd + '\r');
-  return obdWriteChar.properties.writeWithoutResponse
+  const run = () => (obdWriteChar.properties.writeWithoutResponse
     ? obdWriteChar.writeValueWithoutResponse(data)
-    : obdWriteChar.writeValue(data);
+    : obdWriteChar.writeValue(data));
+  // Περίμενε να τελειώσει ΠΡΑΓΜΑΤΙΚΑ η προηγούμενη εγγραφή (επιτυχία ή αποτυχία) πριν ξεκινήσει η νέα —
+  // το να "τα παρατάμε" να περιμένουμε απάντηση δεν ακυρώνει την εγγραφή στο επίπεδο Bluetooth.
+  const result = obdWriteChain.then(run, run);
+  obdWriteChain = result.catch(() => {});
+  return result;
 }
 function obdSendCommand(cmd, timeoutMs) {
   return new Promise((resolve, reject) => {
@@ -985,7 +1028,7 @@ function obdSendCommand(cmd, timeoutMs) {
 }
 function parseRpmResponse(text) {
   const clean = text.replace(/[\r\n>]/g, ' ');
-  const m = clean.match(/41\s*0C\s*([0-9A-Fa-f]{2})\s*([0-9A-Fa-f]{2})/);
+  const m = clean.match(/41\s*0C\s*([0-9A-Fa-f]{2})\s*([0-9A-Fa-f]{2})/i);
   if (!m) return null;
   return ((parseInt(m[1], 16) * 256) + parseInt(m[2], 16)) / 4;
 }
@@ -997,24 +1040,57 @@ function updateRpmGauge(prefix, rpm) {
 }
 async function obdPollLoop() {
   if (!obdConnected) return;
+  let nextDelay = 250;
   try {
-    const resp = await obdSendCommand('010C', 1500);
-    const rpm = parseRpmResponse(resp);
-    if (rpm !== null) {
-      state.rpm = Math.round(rpm);
-      updateRpmGauge('t', state.rpm);
-      sendNow();   // άμεση ενημέρωση μαθητή, χωρίς να περιμένουμε το keepalive
+    const resp = await obdSendCommand('010C', 4000);   // αρκετός χρόνος ώστε ο ELM327 να προλάβει μόνος του να πει NO DATA
+    if (/no data/i.test(resp)) {
+      obdLog('  -> NO DATA (το ECU δεν απάντησε — πιθανώς κλειστή μίζα/κινητήρας)');
+      nextDelay = 800;
+    } else if (/stopped/i.test(resp)) {
+      obdLog('  -> STOPPED (διακόπηκε από νέα εντολή πριν προλάβει να απαντήσει)');
+      nextDelay = 800;
     } else {
-      obdLog('  (η απάντηση ελήφθη αλλά δεν αναγνωρίστηκε ως RPM)');
+      const rpm = parseRpmResponse(resp);
+      if (rpm !== null) {
+        state.rpm = Math.round(rpm);
+        updateRpmGauge('t', state.rpm);
+        sendNow();   // άμεση ενημέρωση μαθητή, χωρίς να περιμένουμε το keepalive
+      } else {
+        obdLog('  (η απάντηση ελήφθη αλλά δεν αναγνωρίστηκε ως RPM)');
+      }
     }
   } catch (e) {
     console.warn('OBD poll error:', e);
+    nextDelay = 800;   // δώσε χρόνο στον προσαρμογέα να "συνέλθει" πριν ξαναρωτήσουμε
   }
-  if (obdConnected) obdPollTimer = setTimeout(obdPollLoop, 250);
+  if (obdConnected) obdPollTimer = setTimeout(obdPollLoop, nextDelay);
 }
 async function obdInitSequence() {
   for (const cmd of ['ATZ', 'ATE0', 'ATL0', 'ATSP0']) {
-    try { await obdSendCommand(cmd, 3000); } catch (e) { console.warn('OBD init cmd failed:', cmd, e); }
+    try { await obdSendCommand(cmd, 3000); } catch (e) { obdLog('Αποτυχία εντολής αρχικοποίησης ' + cmd + ': ' + e); }
+  }
+  // Βασικός έλεγχος επικοινωνίας/πρωτοκόλλου (ποια PIDs υποστηρίζονται).
+  // Δίνουμε άφθονο, ΑΔΙΑΚΟΠΤΟ χρόνο ώστε η αυτόματη ανίχνευση πρωτοκόλλου να προλάβει να ολοκληρωθεί
+  // μία φορά, πριν ξεκινήσει το γρήγορο polling RPM.
+  async function tryBasicCheck(timeoutMs) {
+    const resp = await obdSendCommand('0100', timeoutMs);
+    if (/no data/i.test(resp)) throw new Error('NO DATA στο 0100');
+    if (/stopped/i.test(resp)) throw new Error('STOPPED στο 0100');
+    if (/unable to connect/i.test(resp)) throw new Error('UNABLE TO CONNECT — δεν βρέθηκε πρωτόκολλο OBD');
+    return resp;
+  }
+  try {
+    const resp = await tryBasicCheck(8000);
+    obdLog('✓ Βασική επικοινωνία OK (0100): ' + resp.replace(/[\r\n]/g, '|'));
+  } catch (e1) {
+    obdLog('Πρώτη προσπάθεια 0100 απέτυχε (' + e1.message + ') — δοκιμή ξανά με περισσότερο χρόνο, χωρίς διακοπή…');
+    try {
+      const resp = await tryBasicCheck(15000);
+      obdLog('✓ Βασική επικοινωνία OK στη 2η προσπάθεια (0100): ' + resp.replace(/[\r\n]/g, '|'));
+    } catch (e2) {
+      obdLog('⚠️ Απέτυχε και η 2η προσπάθεια (' + e2.message + ') — πρόβλημα ανίχνευσης πρωτοκόλλου OBD, όχι ειδικά στις στροφές');
+      throw new Error('Αποτυχία βασικής επικοινωνίας OBD (0100): ' + e2.message);
+    }
   }
 }
 window.toggleObdConnection = async function() {
@@ -1324,8 +1400,8 @@ function renderTeacher() {
   document.getElementById('tBrakeFill').style.height = state.brake + '%';
   document.getElementById('tBrakeVal').textContent = state.brake + '%';
   document.getElementById('tClutchVivid').style.clipPath = 'inset(' + (100 - state.clutch) + '% 0 0 0)';
-  document.getElementById('tClutchLevelLine').style.bottom = state.clutch + '%';
-  document.getElementById('tClutchArrow').style.bottom = state.clutch + '%';
+  document.getElementById('tClutchLevelLine').style.bottom = clutchLevelLinePos(state.clutch);
+  document.getElementById('tClutchArrow').style.bottom = clutchLevelLinePos(state.clutch);
   document.getElementById('tClutchVal').textContent = state.clutch + '%';
 
   // Οπτικό "κλείδωμα" γκαζιού/φρένου μεταξύ τους (ο συμπλέκτης είναι πάντα ελεύθερος)
@@ -1347,8 +1423,8 @@ function renderStudent(gas, brake, clutch, gear) {
   document.getElementById('sBrakeFill').style.height = brake + '%';
   document.getElementById('sBrakeVal').textContent = Math.round(brake) + '%';
   document.getElementById('sClutchVivid').style.clipPath = 'inset(' + (100 - clutch) + '% 0 0 0)';
-  document.getElementById('sClutchLevelLine').style.bottom = clutch + '%';
-  document.getElementById('sClutchArrow').style.bottom = clutch + '%';
+  document.getElementById('sClutchLevelLine').style.bottom = clutchLevelLinePos(clutch);
+  document.getElementById('sClutchArrow').style.bottom = clutchLevelLinePos(clutch);
   document.getElementById('sClutchVal').textContent = Math.round(clutch) + '%';
   if (gear) {
     document.getElementById('sGearVal').textContent = gear;
