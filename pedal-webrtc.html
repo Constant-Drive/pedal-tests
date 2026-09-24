@@ -39,9 +39,10 @@
     padding:5px 10px; border-radius:8px; font-size:12px; cursor:pointer; }
 
   .barsArea { flex:1; display:flex; gap:8px; padding:12px 10px; min-height:0; justify-content:center; }
-  .pedalCol { flex:0 0 calc((100% - 16px) / 3); max-width:calc((100% - 16px) / 3);
+  .pedalCol { flex:1 0 calc((100% - 24px) / 4); max-width:calc(((100% - 24px) / 4) * 1.3); min-width:0;
     display:flex; flex-direction:column; gap:6px; min-height:0; }
-  .pedalLabel { text-align:center; font-size:12.5px; font-weight:700; letter-spacing:.5px; flex:0 0 auto; }
+  .pedalLabel { text-align:center; font-size:12.5px; font-weight:700; letter-spacing:.5px; flex:0 0 auto;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .pedalLabel.brake { color:var(--brake); } .pedalLabel.gas { color:var(--gas); } .pedalLabel.clutch { color:var(--clutch); }
   .pedalValue { text-align:center; font-size:26px; font-weight:800;
     font-variant-numeric:tabular-nums; flex:0 0 auto; }
@@ -136,27 +137,16 @@
   .handbrakeFloatLabel { font-size:9px; color:var(--muted); letter-spacing:1px; font-weight:700; }
   .handbrakeFloat .handbrakeControl { transform:scale(.8); margin:-4px 0; }
   #studentScreen .handbrakeFloat .handbrakeControl { transform:scale(.9); }
-  .rpmFloat { position:absolute; top:52px; left:10px; z-index:15; width:150px;
-    background:rgba(26,32,39,.92); border:1px solid var(--line); border-radius:14px;
-    padding:8px 10px; display:flex; flex-direction:column; gap:4px;
-    box-shadow:0 6px 18px rgba(0,0,0,.4); }
-  .rpmFloatHeader { display:flex; align-items:center; justify-content:space-between; }
-  .rpmFloatLabel { font-size:9px; color:var(--muted); letter-spacing:1px; font-weight:700; }
-  .obdBtn { font-size:9px; font-weight:700; padding:3px 7px; border-radius:8px;
+  .obdBtn { font-size:14px; padding:0; width:34px; height:34px; border-radius:10px;
     border:1px solid var(--line); background:var(--panel); color:var(--muted); }
   .obdBtn.connecting { color:#f2b134; border-color:#f2b134; }
   .obdBtn.connected { color:#8be3a4; border-color:#2f8f52; }
   .obdBtn.error { color:#ff9a91; border-color:#c22f27; }
-  .rpmReadoutMini { text-align:center; font-size:22px; font-weight:800; font-variant-numeric:tabular-nums;
-    line-height:1; }
-  .rpmReadoutMini span { font-size:10px; font-weight:600; color:var(--muted); }
-  .rpmTrackMini { position:relative; height:10px; border-radius:5px; overflow:hidden; border:1px solid var(--line); }
-  .rpmZoneIdle { position:absolute; left:0; top:0; bottom:0; background:#3a4451; }
-  .rpmZoneNormal { position:absolute; top:0; bottom:0; background:linear-gradient(to right,#1f8a37,#32d74b); }
-  .rpmZoneCaution { position:absolute; top:0; bottom:0; background:linear-gradient(to right,#c98a1f,#f2b134); }
-  .rpmZoneRedline { position:absolute; top:0; bottom:0; background:linear-gradient(to right,#c22f27,#ff453a); }
-  .rpmNeedleMini { position:absolute; top:-2px; bottom:-2px; width:2px; background:#fff;
-    box-shadow:0 0 6px #7dd3fc; transition:left .04s linear; }
+  .fill.rpm.rpmIdle    { background:linear-gradient(to top,#3a4451,#6b7785); box-shadow:0 0 18px rgba(90,100,114,.4); }
+  .fill.rpm.rpmNormal  { background:linear-gradient(to top,#1f8a37,#32d74b); box-shadow:0 0 20px rgba(50,215,75,.4); }
+  .fill.rpm.rpmCaution { background:linear-gradient(to top,#c98a1f,#f2b134); box-shadow:0 0 22px rgba(242,177,52,.45); }
+  .fill.rpm.rpmRedline { background:linear-gradient(to top,#c22f27,#ff453a); box-shadow:0 0 24px rgba(255,69,58,.5); }
+  .fill.throttle { background:linear-gradient(to top,#0e8fae,#22d3ee); box-shadow:0 0 20px rgba(34,211,238,.4); }
   .handbrakeControl { display:flex; flex-direction:column; align-items:center; gap:4px; }
   .hbLight { width:9px; height:9px; border-radius:50%; background:#3a1216;
     transition:background .15s, box-shadow .15s; }
@@ -249,6 +239,7 @@ window.FIREBASE_CONFIG = {
       <span class="statusDot" id="tDot"></span><span id="tStatus">Εκκίνηση…</span></span>
     <span style="display:flex;gap:6px;">
       <button id="tSoundBtn" onpointerdown="toggleTeacherSound()">🔊</button>
+      <button class="obdBtn" id="obdBtn" onpointerdown="toggleObdConnection()">🔌</button>
       <button onpointerdown="togglePedalSettings()">⚙️</button>
       <button onpointerdown="location.reload()">Επανεκκίνηση</button>
     </span>
@@ -265,6 +256,7 @@ window.FIREBASE_CONFIG = {
       <button class="gearBtn" data-pedal="gas" onpointerdown="togglePedalVisible('gas')">Γκάζι</button>
       <button class="gearBtn" data-pedal="handbrake" onpointerdown="togglePedalVisible('handbrake')">Χειρόφρενο</button>
       <button class="gearBtn" data-pedal="rpm" onpointerdown="togglePedalVisible('rpm')">Στροφές</button>
+      <button class="gearBtn" data-pedal="throttle" onpointerdown="togglePedalVisible('throttle')">OBD Γκάζι</button>
     </div>
     <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchZoneRow">
@@ -374,6 +366,18 @@ window.FIREBASE_CONFIG = {
       <div class="track" id="tGasTrack"><div class="ticks"></div><div class="fill gas" id="tGasFill"></div></div>
       <button class="zeroBtn" onpointerdown="zeroPedal('gas')">Μηδέν</button>
     </div>
+    <div class="pedalCol" id="tRpmCol">
+      <div class="pedalLabel" style="color:#8fd18f;">ΣΤΡΟΦΕΣ</div>
+      <div class="pedalValue" id="tRpmVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill rpm rpmIdle" id="tRpmFill"></div></div>
+      <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
+    </div>
+    <div class="pedalCol" id="tThrottleCol">
+      <div class="pedalLabel" style="color:#22d3ee;">OBD ΓΚΑΖΙ</div>
+      <div class="pedalValue" id="tThrottleVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill throttle" id="tThrottleFill"></div></div>
+      <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
+    </div>
   </div>
   <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
   <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ</div>
@@ -392,20 +396,6 @@ window.FIREBASE_CONFIG = {
       <div class="hbLight" id="tHbLight"></div>
       <div class="hbBase"><div class="hbLever" id="tHbLever"><div class="hbKnob"></div></div></div>
       <div class="hbStateText" id="tHbStateText">ΚΑΤΩ</div>
-    </div>
-  </div>
-  <div class="rpmFloat">
-    <div class="rpmFloatHeader">
-      <span class="rpmFloatLabel">ΣΤΡΟΦΕΣ</span>
-      <button class="obdBtn" id="obdBtn" onpointerdown="toggleObdConnection()">🔌 OBD-II</button>
-    </div>
-    <div class="rpmReadoutMini" id="tRpmVal">— <span>RPM</span></div>
-    <div class="rpmTrackMini">
-      <div class="rpmZoneIdle" style="width:11%"></div>
-      <div class="rpmZoneNormal" style="left:11%; width:32%"></div>
-      <div class="rpmZoneCaution" style="left:43%; width:36%"></div>
-      <div class="rpmZoneRedline" style="left:79%; width:21%"></div>
-      <div class="rpmNeedleMini" id="tRpmNeedle" style="left:0%"></div>
     </div>
   </div>
 </div>
@@ -434,17 +424,6 @@ window.FIREBASE_CONFIG = {
       <div class="hbStateText" id="sHbStateText">ΚΑΤΩ</div>
     </div>
   </div>
-  <div class="rpmFloat">
-    <div class="rpmFloatHeader"><span class="rpmFloatLabel">ΣΤΡΟΦΕΣ</span></div>
-    <div class="rpmReadoutMini" id="sRpmVal">— <span>RPM</span></div>
-    <div class="rpmTrackMini">
-      <div class="rpmZoneIdle" style="width:11%"></div>
-      <div class="rpmZoneNormal" style="left:11%; width:32%"></div>
-      <div class="rpmZoneCaution" style="left:43%; width:36%"></div>
-      <div class="rpmZoneRedline" style="left:79%; width:21%"></div>
-      <div class="rpmNeedleMini" id="sRpmNeedle" style="left:0%"></div>
-    </div>
-  </div>
   <div class="barsArea">
     <div class="pedalCol" id="sClutchCol">
       <div class="pedalLabel clutch">ΣΥΜΠΛΕΚΤΗΣ</div>
@@ -467,6 +446,16 @@ window.FIREBASE_CONFIG = {
       <div class="pedalLabel gas">ΓΚΑΖΙ</div>
       <div class="pedalValue" id="sGasVal">0%</div>
       <div class="track"><div class="ticks"></div><div class="fill gas" id="sGasFill"></div></div>
+    </div>
+    <div class="pedalCol" id="sRpmCol">
+      <div class="pedalLabel" style="color:#8fd18f;">ΣΤΡΟΦΕΣ</div>
+      <div class="pedalValue" id="sRpmVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill rpm rpmIdle" id="sRpmFill"></div></div>
+    </div>
+    <div class="pedalCol" id="sThrottleCol">
+      <div class="pedalLabel" style="color:#22d3ee;">OBD ΓΚΑΖΙ</div>
+      <div class="pedalValue" id="sThrottleVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill throttle" id="sThrottleFill"></div></div>
     </div>
   </div>
 </div>
@@ -698,21 +687,25 @@ const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
 function loadVisiblePedals() {
+  let result = { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: false };
   try {
     const saved = JSON.parse(localStorage.getItem('pedalGuideVisiblePedals'));
-    if (saved && typeof saved === 'object')
-      return { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false,
-        handbrake: saved.handbrake !== false, rpm: saved.rpm !== false };
+    if (saved && typeof saved === 'object') {
+      result = { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false,
+        handbrake: saved.handbrake !== false, rpm: saved.rpm !== false, throttle: saved.throttle === true };
+    }
   } catch (e) {}
-  return { gas: true, brake: true, clutch: true, handbrake: true, rpm: true };
+  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle'];
+  if (barKeys.reduce((n, k) => n + (result[k] ? 1 : 0), 0) > 4) result.throttle = false;   // ασφάλεια: ποτέ πάνω από 4
+  return result;
 }
-const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν', handbrake: false, rpm: 0,
+const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν', handbrake: false, rpm: 0, throttle: 0,
   alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off'),
   visible: loadVisiblePedals() };
 let role = null, pc = null, channel = null;
 
 // ---------- Ποια πεντάλ (και το χειρόφρενο/στροφές) εμφανίζονται (επιλέγεται από τον δάσκαλο) ----------
-const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch' };
+const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch', rpm: 'Rpm', throttle: 'Throttle' };
 function applyPedalVisibility(vis, prefix) {
   Object.keys(PEDAL_COL_ID).forEach(p => {
     const col = document.getElementById(prefix + PEDAL_COL_ID[p] + 'Col');
@@ -721,8 +714,6 @@ function applyPedalVisibility(vis, prefix) {
   const screenId = prefix === 't' ? 'teacherScreen' : 'studentScreen';
   const hbFloat = document.querySelector('#' + screenId + ' .handbrakeFloat');
   if (hbFloat) hbFloat.style.display = vis.handbrake === false ? 'none' : '';
-  const rpmFloat = document.querySelector('#' + screenId + ' .rpmFloat');
-  if (rpmFloat) rpmFloat.style.display = vis.rpm === false ? 'none' : '';
 }
 function updatePedalToggleButtons() {
   document.querySelectorAll('#tPedalSettingsPanel .gearBtn').forEach(btn => {
@@ -734,7 +725,10 @@ window.togglePedalSettings = function() {
 };
 window.togglePedalVisible = function(which) {
   const proposed = { ...state.visible, [which]: !state.visible[which] };
-  if (!(proposed.gas || proposed.brake || proposed.clutch)) return;  // πρέπει να μείνει τουλάχιστον ένα ορατό
+  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle'];
+  const visibleBars = barKeys.reduce((n, k) => n + (proposed[k] ? 1 : 0), 0);
+  if (visibleBars < 1) return;   // πρέπει να μείνει τουλάχιστον μία μπάρα ορατή (οποιαδήποτε από τις 5)
+  if (visibleBars > 4) return;   // μέγιστο 4 στήλες ταυτόχρονα (το χειρόφρενο δεν μετράει, είναι ξεχωριστό)
   state.visible = proposed;
   localStorage.setItem('pedalGuideVisiblePedals', JSON.stringify(state.visible));
   applyPedalVisibility(state.visible, 't');
@@ -924,8 +918,7 @@ function makeFloatingDraggable(floatSelector, excludeSelector, storageKeyBase, p
 }
 makeFloatingDraggable('.handbrakeFloat', '.handbrakeControl', 'pedalGuideHbPos', 't');
 makeFloatingDraggable('.handbrakeFloat', '.handbrakeControl', 'pedalGuideHbPos', 's');
-makeFloatingDraggable('.rpmFloat', '.obdBtn', 'pedalGuideRpmPos', 't');
-makeFloatingDraggable('.rpmFloat', '.obdBtn', 'pedalGuideRpmPos', 's');
+
 // ---------- OBD-II μέσω Web Bluetooth (Vgate iCar Pro 2S και συμβατά ELM327 BLE) ----------
 // Τα firmware της Vgate έχουν χρησιμοποιήσει διαφορετικά UUIDs ανά περίοδο (0xFFE0/0xFFE1,
 // 0xFFF0/0xFFF1, 0x18F0/0x2AF0/0x2AF1 κ.ά.) — αντί να υποθέσουμε ένα, ανιχνεύουμε αυτόματα
@@ -1032,11 +1025,34 @@ function parseRpmResponse(text) {
   if (!m) return null;
   return ((parseInt(m[1], 16) * 256) + parseInt(m[2], 16)) / 4;
 }
-function updateRpmGauge(prefix, rpm) {
-  const valEl = document.getElementById(prefix + 'RpmVal');
-  const needle = document.getElementById(prefix + 'RpmNeedle');
-  if (valEl) valEl.innerHTML = rpm.toLocaleString('el-GR') + ' <span>RPM</span>';
-  if (needle) needle.style.left = Math.min(100, (rpm / 7000) * 100) + '%';
+function parseThrottleResponse(text) {
+  const clean = text.replace(/[\r\n>]/g, ' ');
+  const m = clean.match(/41\s*11\s*([0-9A-Fa-f]{2})/i);
+  if (!m) return null;
+  return (parseInt(m[1], 16) * 100) / 255;
+}
+const RPM_MAX = 7000;
+function rpmZoneClass(rpm) {
+  if (rpm < 800) return 'rpmIdle';
+  if (rpm < 3000) return 'rpmNormal';
+  if (rpm < 5500) return 'rpmCaution';
+  return 'rpmRedline';
+}
+function updateRpmFill(prefix, rpm) {
+  const val = document.getElementById(prefix + 'RpmVal');
+  const fill = document.getElementById(prefix + 'RpmFill');
+  if (val) val.textContent = rpm.toLocaleString('el-GR');
+  if (fill) {
+    fill.style.height = Math.min(100, (rpm / RPM_MAX) * 100) + '%';
+    fill.classList.remove('rpmIdle', 'rpmNormal', 'rpmCaution', 'rpmRedline');
+    fill.classList.add(rpmZoneClass(rpm));
+  }
+}
+function updateThrottleFill(prefix, pct) {
+  const val = document.getElementById(prefix + 'ThrottleVal');
+  const fill = document.getElementById(prefix + 'ThrottleFill');
+  if (val) val.textContent = pct + '%';
+  if (fill) fill.style.height = Math.min(100, pct) + '%';
 }
 async function obdPollLoop() {
   if (!obdConnected) return;
@@ -1053,8 +1069,7 @@ async function obdPollLoop() {
       const rpm = parseRpmResponse(resp);
       if (rpm !== null) {
         state.rpm = Math.round(rpm);
-        updateRpmGauge('t', state.rpm);
-        sendNow();   // άμεση ενημέρωση μαθητή, χωρίς να περιμένουμε το keepalive
+        updateRpmFill('t', state.rpm);
       } else {
         obdLog('  (η απάντηση ελήφθη αλλά δεν αναγνωρίστηκε ως RPM)');
       }
@@ -1062,6 +1077,26 @@ async function obdPollLoop() {
   } catch (e) {
     console.warn('OBD poll error:', e);
     nextDelay = 800;   // δώσε χρόνο στον προσαρμογέα να "συνέλθει" πριν ξαναρωτήσουμε
+  }
+  if (obdConnected) {
+    // Θέση πεταλιού γκαζιού (throttle position) — ίδια λογική, δεύτερο ερώτημα στον ίδιο κύκλο
+    try {
+      const resp2 = await obdSendCommand('0111', 4000);
+      if (/no data/i.test(resp2) || /stopped/i.test(resp2)) {
+        obdLog('  -> ' + (/no data/i.test(resp2) ? 'NO DATA' : 'STOPPED') + ' (0111 — θέση γκαζιού)');
+      } else {
+        const pct = parseThrottleResponse(resp2);
+        if (pct !== null) {
+          state.throttle = Math.round(pct);
+          updateThrottleFill('t', state.throttle);
+        } else {
+          obdLog('  (η απάντηση 0111 ελήφθη αλλά δεν αναγνωρίστηκε ως θέση γκαζιού)');
+        }
+      }
+    } catch (e) {
+      console.warn('OBD poll error (throttle):', e);
+    }
+    sendNow();   // άμεση ενημέρωση μαθητή με ό,τι μαζεύτηκε αυτόν τον κύκλο, χωρίς να περιμένουμε το keepalive
   }
   if (obdConnected) obdPollTimer = setTimeout(obdPollLoop, nextDelay);
 }
@@ -1099,16 +1134,16 @@ window.toggleObdConnection = async function() {
     clearTimeout(obdPollTimer);
     try { if (obdDevice && obdDevice.gatt.connected) obdDevice.gatt.disconnect(); } catch (e) {}
     obdLog('Αποσύνδεση από τον χρήστη');
-    setObdBtnState('', '🔌 OBD-II');
+    setObdBtnState('', '🔌');
     return;
   }
   if (!navigator.bluetooth) {
     obdLog('Το Web Bluetooth δεν υποστηρίζεται σε αυτόν τον browser');
-    setObdBtnState('error', 'Μη διαθέσιμο');
+    setObdBtnState('error', '⚠️');
     return;
   }
   try {
-    setObdBtnState('connecting', 'Σύνδεση…');
+    setObdBtnState('connecting', '⏳');
     obdLog('Αναζήτηση συσκευής Bluetooth…');
     obdDevice = await navigator.bluetooth.requestDevice({
       acceptAllDevices: true,
@@ -1119,7 +1154,7 @@ window.toggleObdConnection = async function() {
       obdConnected = false;
       clearTimeout(obdPollTimer);
       obdLog('GATT αποσυνδέθηκε (απροσδόκητα)');
-      setObdBtnState('error', 'Αποσυνδέθηκε');
+      setObdBtnState('error', '🔌');
     });
     obdServer = await obdDevice.gatt.connect();
     obdLog('Συνδέθηκε GATT server');
@@ -1132,13 +1167,13 @@ window.toggleObdConnection = async function() {
     obdLog('startNotifications() OK — ξεκινά αρχικοποίηση ELM327…');
     await obdInitSequence();
     obdConnected = true;
-    setObdBtnState('connected', '🔌 Συνδεδεμένο');
+    setObdBtnState('connected', '🔌');
     obdLog('Ξεκινά ερώτημα RPM (010C) κάθε 250ms…');
     obdPollLoop();
   } catch (err) {
     obdLog('ΣΦΑΛΜΑ: ' + (err && err.message ? err.message : err));
     console.error('OBD connect error:', err);
-    setObdBtnState('error', 'Σφάλμα σύνδεσης');
+    setObdBtnState('error', '⚠️');
   }
 };
 
@@ -1235,7 +1270,7 @@ function startStudent() {
         try {
           const v = JSON.parse(ev.data);
           teacherAlertsOn = v.alertsOn !== false;
-          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true }, 's');
+          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: true }, 's');
           if (typeof v.clutchZoneLow === 'number' && typeof v.clutchZoneHigh === 'number' &&
               (v.clutchZoneLow !== CLUTCH_ZONE_LOW || v.clutchZoneHigh !== CLUTCH_ZONE_HIGH)) {
             CLUTCH_ZONE_LOW = v.clutchZoneLow; CLUTCH_ZONE_HIGH = v.clutchZoneHigh;
@@ -1259,7 +1294,8 @@ function startStudent() {
             CLUTCH_POS2 = v.clutchPos2; CLUTCH_POS3 = v.clutchPos3;
             updateClutchPosBadgePositions('s');
           }
-          updateRpmGauge('s', Math.round(v.rpm || 0));
+          updateRpmFill('s', Math.round(v.rpm || 0));
+          updateThrottleFill('s', Math.round(v.throttle || 0));
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -1287,7 +1323,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3 }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3 }));
   }
 }
 function send() {
