@@ -328,6 +328,13 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchDur4">420ms</span>
       <button class="stepBtn" onpointerdown="adjustClutchDuration(4,50)">+</button>
     </div>
+    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΜΠΑΡΑΣ OBD ΓΚΑΖΙ</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Έως</span>
+      <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(-5)">−</button>
+      <span class="czVal" id="throttleMaxScaleVal">100%</span>
+      <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(5)">+</button>
+    </div>
     <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
     <div class="obdDebugBox" id="obdDebugLog"></div>
     <div style="display:flex; justify-content:center; gap:8px; padding:6px 14px 0;">
@@ -1048,11 +1055,26 @@ function updateRpmFill(prefix, rpm) {
     fill.classList.add(rpmZoneClass(rpm));
   }
 }
+function loadThrottleMaxScale() {
+  const saved = parseFloat(localStorage.getItem('pedalGuideThrottleMaxScale'));
+  return (saved && saved >= 5 && saved <= 100) ? saved : 100;
+}
+let THROTTLE_MAX_SCALE = loadThrottleMaxScale();
+let lastThrottlePct = 0;
+window.adjustThrottleMaxScale = function(delta) {
+  THROTTLE_MAX_SCALE = Math.max(5, Math.min(100, THROTTLE_MAX_SCALE + delta));
+  localStorage.setItem('pedalGuideThrottleMaxScale', THROTTLE_MAX_SCALE);
+  document.getElementById('throttleMaxScaleVal').textContent = THROTTLE_MAX_SCALE + '%';
+  updateThrottleFill('t', lastThrottlePct);   // άμεση επανασχεδίαση με τη νέα κλίμακα
+  sendNow();   // ενημέρωση μαθητή ώστε να βλέπει την ίδια κλίμακα
+};
+document.getElementById('throttleMaxScaleVal').textContent = THROTTLE_MAX_SCALE + '%';
 function updateThrottleFill(prefix, pct) {
+  if (prefix === 't') lastThrottlePct = pct;   // κρατάμε την πραγματική τιμή για επανασχεδίαση όταν αλλάζει η κλίμακα
   const val = document.getElementById(prefix + 'ThrottleVal');
   const fill = document.getElementById(prefix + 'ThrottleFill');
   if (val) val.textContent = pct + '%';
-  if (fill) fill.style.height = Math.min(100, pct) + '%';
+  if (fill) fill.style.height = Math.min(100, (pct / THROTTLE_MAX_SCALE) * 100) + '%';
 }
 async function obdPollLoop() {
   if (!obdConnected) return;
@@ -1295,6 +1317,9 @@ function startStudent() {
             updateClutchPosBadgePositions('s');
           }
           updateRpmFill('s', Math.round(v.rpm || 0));
+          if (typeof v.throttleMaxScale === 'number' && v.throttleMaxScale !== THROTTLE_MAX_SCALE) {
+            THROTTLE_MAX_SCALE = v.throttleMaxScale;
+          }
           updateThrottleFill('s', Math.round(v.throttle || 0));
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
@@ -1323,7 +1348,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3 }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3, throttleMaxScale: THROTTLE_MAX_SCALE }));
   }
 }
 function send() {
