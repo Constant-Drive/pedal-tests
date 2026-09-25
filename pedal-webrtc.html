@@ -1034,7 +1034,7 @@ function parseRpmResponse(text) {
 }
 function parseThrottleResponse(text) {
   const clean = text.replace(/[\r\n>]/g, ' ');
-  const m = clean.match(/41\s*11\s*([0-9A-Fa-f]{2})/i);
+  const m = clean.match(/41\s*45\s*([0-9A-Fa-f]{2})/i);   // 0145 = σχετική θέση γκαζιού
   if (!m) return null;
   return (parseInt(m[1], 16) * 100) / 255;
 }
@@ -1101,18 +1101,18 @@ async function obdPollLoop() {
     nextDelay = 800;   // δώσε χρόνο στον προσαρμογέα να "συνέλθει" πριν ξαναρωτήσουμε
   }
   if (obdConnected) {
-    // Θέση πεταλιού γκαζιού (throttle position) — ίδια λογική, δεύτερο ερώτημα στον ίδιο κύκλο
+    // Σχετική θέση γκαζιού (relative throttle position) — ίδια λογική, δεύτερο ερώτημα στον ίδιο κύκλο
     try {
-      const resp2 = await obdSendCommand('0111', 4000);
+      const resp2 = await obdSendCommand('0145', 4000);
       if (/no data/i.test(resp2) || /stopped/i.test(resp2)) {
-        obdLog('  -> ' + (/no data/i.test(resp2) ? 'NO DATA' : 'STOPPED') + ' (0111 — θέση γκαζιού)');
+        obdLog('  -> ' + (/no data/i.test(resp2) ? 'NO DATA' : 'STOPPED') + ' (0145 — σχετική θέση γκαζιού)');
       } else {
         const pct = parseThrottleResponse(resp2);
         if (pct !== null) {
           state.throttle = Math.round(pct);
           updateThrottleFill('t', state.throttle);
         } else {
-          obdLog('  (η απάντηση 0111 ελήφθη αλλά δεν αναγνωρίστηκε ως θέση γκαζιού)');
+          obdLog('  (η απάντηση 0145 ελήφθη αλλά δεν αναγνωρίστηκε ως θέση γκαζιού)');
         }
       }
     } catch (e) {
