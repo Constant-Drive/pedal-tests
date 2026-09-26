@@ -120,6 +120,9 @@
     border:1px solid var(--line); background:var(--panel); color:var(--text);
     font-size:17px; font-weight:700; cursor:pointer; }
   .gearBtn:active { background:#232b34; }
+  .pedalVisRow { display:grid; grid-template-columns:repeat(3, 1fr); }
+  .pedalVisRow .gearBtn { flex:none; padding:12px 4px; font-size:13px;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .gearBtn.active { background:#22324a; border-color:#5b9bd9; color:#a9d6ff;
     box-shadow:0 0 14px rgba(91,155,217,.4); }
   .gearWrap { flex:0 0 auto; }
@@ -147,6 +150,7 @@
   .fill.rpm.rpmCaution { background:linear-gradient(to top,#c98a1f,#f2b134); box-shadow:0 0 22px rgba(242,177,52,.45); }
   .fill.rpm.rpmRedline { background:linear-gradient(to top,#c22f27,#ff453a); box-shadow:0 0 24px rgba(255,69,58,.5); }
   .fill.throttle { background:linear-gradient(to top,#0e8fae,#22d3ee); box-shadow:0 0 20px rgba(34,211,238,.4); }
+  .fill.throttleAbs { background:linear-gradient(to top,#4c5fd6,#8aa0ff); box-shadow:0 0 20px rgba(138,160,255,.4); }
   .handbrakeControl { display:flex; flex-direction:column; align-items:center; gap:4px; }
   .hbLight { width:9px; height:9px; border-radius:50%; background:#3a1216;
     transition:background .15s, box-shadow .15s; }
@@ -250,13 +254,14 @@ window.FIREBASE_CONFIG = {
       <button class="pedalSettingsClose" onpointerdown="togglePedalSettings()">✕</button>
     </div>
     <div class="gearWrapLabel" style="padding-top:0;">ΕΜΦΑΝΙΣΗ ΠΕΝΤΑΛ</div>
-    <div class="gearRow" style="border-top:0;">
+    <div class="gearRow pedalVisRow" style="border-top:0;">
       <button class="gearBtn" data-pedal="clutch" onpointerdown="togglePedalVisible('clutch')">Συμπλέκτης</button>
       <button class="gearBtn" data-pedal="brake" onpointerdown="togglePedalVisible('brake')">Φρένο</button>
       <button class="gearBtn" data-pedal="gas" onpointerdown="togglePedalVisible('gas')">Γκάζι</button>
       <button class="gearBtn" data-pedal="handbrake" onpointerdown="togglePedalVisible('handbrake')">Χειρόφρενο</button>
       <button class="gearBtn" data-pedal="rpm" onpointerdown="togglePedalVisible('rpm')">Στροφές</button>
-      <button class="gearBtn" data-pedal="throttle" onpointerdown="togglePedalVisible('throttle')">OBD Γκάζι</button>
+      <button class="gearBtn" data-pedal="throttle" onpointerdown="togglePedalVisible('throttle')">Γκάζι Σχετ.</button>
+      <button class="gearBtn" data-pedal="throttleAbs" onpointerdown="togglePedalVisible('throttleAbs')">Γκάζι Απόλ.</button>
     </div>
     <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
     <div class="clutchZoneRow">
@@ -328,12 +333,19 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchDur4">420ms</span>
       <button class="stepBtn" onpointerdown="adjustClutchDuration(4,50)">+</button>
     </div>
-    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΜΠΑΡΑΣ OBD ΓΚΑΖΙ</div>
+    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΓΚΑΖΙ (ΣΧΕΤ.)</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Έως</span>
       <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(-5)">−</button>
       <span class="czVal" id="throttleMaxScaleVal">100%</span>
       <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(5)">+</button>
+    </div>
+    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΓΚΑΖΙ (ΑΠΟΛ.)</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Έως</span>
+      <button class="stepBtn" onpointerdown="adjustThrottleAbsMaxScale(-5)">−</button>
+      <span class="czVal" id="throttleAbsMaxScaleVal">100%</span>
+      <button class="stepBtn" onpointerdown="adjustThrottleAbsMaxScale(5)">+</button>
     </div>
     <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
     <div class="obdDebugBox" id="obdDebugLog"></div>
@@ -380,9 +392,15 @@ window.FIREBASE_CONFIG = {
       <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
     </div>
     <div class="pedalCol" id="tThrottleCol">
-      <div class="pedalLabel" style="color:#22d3ee;">OBD ΓΚΑΖΙ</div>
+      <div class="pedalLabel" style="color:#22d3ee;">ΓΚΑΖΙ ΣΧΕΤ.</div>
       <div class="pedalValue" id="tThrottleVal">—</div>
       <div class="track"><div class="ticks"></div><div class="fill throttle" id="tThrottleFill"></div></div>
+      <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
+    </div>
+    <div class="pedalCol" id="tThrottleAbsCol">
+      <div class="pedalLabel" style="color:#8aa0ff;">ΓΚΑΖΙ ΑΠΟΛ.</div>
+      <div class="pedalValue" id="tThrottleAbsVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill throttleAbs" id="tThrottleAbsFill"></div></div>
       <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
     </div>
   </div>
@@ -460,9 +478,14 @@ window.FIREBASE_CONFIG = {
       <div class="track"><div class="ticks"></div><div class="fill rpm rpmIdle" id="sRpmFill"></div></div>
     </div>
     <div class="pedalCol" id="sThrottleCol">
-      <div class="pedalLabel" style="color:#22d3ee;">OBD ΓΚΑΖΙ</div>
+      <div class="pedalLabel" style="color:#22d3ee;">ΓΚΑΖΙ ΣΧΕΤ.</div>
       <div class="pedalValue" id="sThrottleVal">—</div>
       <div class="track"><div class="ticks"></div><div class="fill throttle" id="sThrottleFill"></div></div>
+    </div>
+    <div class="pedalCol" id="sThrottleAbsCol">
+      <div class="pedalLabel" style="color:#8aa0ff;">ΓΚΑΖΙ ΑΠΟΛ.</div>
+      <div class="pedalValue" id="sThrottleAbsVal">—</div>
+      <div class="track"><div class="ticks"></div><div class="fill throttleAbs" id="sThrottleAbsFill"></div></div>
     </div>
   </div>
 </div>
@@ -694,25 +717,30 @@ const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
 function loadVisiblePedals() {
-  let result = { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: false };
+  let result = { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: false, throttleAbs: false };
   try {
     const saved = JSON.parse(localStorage.getItem('pedalGuideVisiblePedals'));
     if (saved && typeof saved === 'object') {
       result = { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false,
-        handbrake: saved.handbrake !== false, rpm: saved.rpm !== false, throttle: saved.throttle === true };
+        handbrake: saved.handbrake !== false, rpm: saved.rpm !== false, throttle: saved.throttle === true,
+        throttleAbs: saved.throttleAbs === true };
     }
   } catch (e) {}
-  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle'];
-  if (barKeys.reduce((n, k) => n + (result[k] ? 1 : 0), 0) > 4) result.throttle = false;   // ασφάλεια: ποτέ πάνω από 4
+  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle', 'throttleAbs'];
+  while (barKeys.reduce((n, k) => n + (result[k] ? 1 : 0), 0) > 4) {
+    if (result.throttleAbs) result.throttleAbs = false;
+    else if (result.throttle) result.throttle = false;
+    else break;
+  }   // ασφάλεια: ποτέ πάνω από 4
   return result;
 }
-const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν', handbrake: false, rpm: 0, throttle: 0,
+const state = { gas: 0, brake: 0, clutch: 100, gear: 'Ν', handbrake: false, rpm: 0, throttle: 0, throttleAbs: 0,
   alertsOn: (localStorage.getItem('pedalGuideTeacherAlerts') !== 'off'),
   visible: loadVisiblePedals() };
 let role = null, pc = null, channel = null;
 
 // ---------- Ποια πεντάλ (και το χειρόφρενο/στροφές) εμφανίζονται (επιλέγεται από τον δάσκαλο) ----------
-const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch', rpm: 'Rpm', throttle: 'Throttle' };
+const PEDAL_COL_ID = { gas: 'Gas', brake: 'Brake', clutch: 'Clutch', rpm: 'Rpm', throttle: 'Throttle', throttleAbs: 'ThrottleAbs' };
 function applyPedalVisibility(vis, prefix) {
   Object.keys(PEDAL_COL_ID).forEach(p => {
     const col = document.getElementById(prefix + PEDAL_COL_ID[p] + 'Col');
@@ -732,9 +760,9 @@ window.togglePedalSettings = function() {
 };
 window.togglePedalVisible = function(which) {
   const proposed = { ...state.visible, [which]: !state.visible[which] };
-  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle'];
+  const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle', 'throttleAbs'];
   const visibleBars = barKeys.reduce((n, k) => n + (proposed[k] ? 1 : 0), 0);
-  if (visibleBars < 1) return;   // πρέπει να μείνει τουλάχιστον μία μπάρα ορατή (οποιαδήποτε από τις 5)
+  if (visibleBars < 1) return;   // πρέπει να μείνει τουλάχιστον μία μπάρα ορατή (οποιαδήποτε από τις 6)
   if (visibleBars > 4) return;   // μέγιστο 4 στήλες ταυτόχρονα (το χειρόφρενο δεν μετράει, είναι ξεχωριστό)
   state.visible = proposed;
   localStorage.setItem('pedalGuideVisiblePedals', JSON.stringify(state.visible));
@@ -1032,9 +1060,10 @@ function parseRpmResponse(text) {
   if (!m) return null;
   return ((parseInt(m[1], 16) * 256) + parseInt(m[2], 16)) / 4;
 }
-function parseThrottleResponse(text) {
+function parseThrottlePidResponse(text, pidHex) {
   const clean = text.replace(/[\r\n>]/g, ' ');
-  const m = clean.match(/41\s*45\s*([0-9A-Fa-f]{2})/i);   // 0145 = σχετική θέση γκαζιού
+  const re = new RegExp('41\\s*' + pidHex + '\\s*([0-9A-Fa-f]{2})', 'i');
+  const m = clean.match(re);
   if (!m) return null;
   return (parseInt(m[1], 16) * 100) / 255;
 }
@@ -1055,12 +1084,13 @@ function updateRpmFill(prefix, rpm) {
     fill.classList.add(rpmZoneClass(rpm));
   }
 }
-function loadThrottleMaxScale() {
-  const saved = parseFloat(localStorage.getItem('pedalGuideThrottleMaxScale'));
+function loadMaxScale(storageKey) {
+  const saved = parseFloat(localStorage.getItem(storageKey));
   return (saved && saved >= 5 && saved <= 100) ? saved : 100;
 }
-let THROTTLE_MAX_SCALE = loadThrottleMaxScale();
-let lastThrottlePct = 0;
+let THROTTLE_MAX_SCALE = loadMaxScale('pedalGuideThrottleMaxScale');
+let THROTTLE_ABS_MAX_SCALE = loadMaxScale('pedalGuideThrottleAbsMaxScale');
+let lastThrottlePct = 0, lastThrottleAbsPct = 0;
 window.adjustThrottleMaxScale = function(delta) {
   THROTTLE_MAX_SCALE = Math.max(5, Math.min(100, THROTTLE_MAX_SCALE + delta));
   localStorage.setItem('pedalGuideThrottleMaxScale', THROTTLE_MAX_SCALE);
@@ -1068,13 +1098,28 @@ window.adjustThrottleMaxScale = function(delta) {
   updateThrottleFill('t', lastThrottlePct);   // άμεση επανασχεδίαση με τη νέα κλίμακα
   sendNow();   // ενημέρωση μαθητή ώστε να βλέπει την ίδια κλίμακα
 };
+window.adjustThrottleAbsMaxScale = function(delta) {
+  THROTTLE_ABS_MAX_SCALE = Math.max(5, Math.min(100, THROTTLE_ABS_MAX_SCALE + delta));
+  localStorage.setItem('pedalGuideThrottleAbsMaxScale', THROTTLE_ABS_MAX_SCALE);
+  document.getElementById('throttleAbsMaxScaleVal').textContent = THROTTLE_ABS_MAX_SCALE + '%';
+  updateThrottleAbsFill('t', lastThrottleAbsPct);
+  sendNow();
+};
 document.getElementById('throttleMaxScaleVal').textContent = THROTTLE_MAX_SCALE + '%';
+document.getElementById('throttleAbsMaxScaleVal').textContent = THROTTLE_ABS_MAX_SCALE + '%';
 function updateThrottleFill(prefix, pct) {
   if (prefix === 't') lastThrottlePct = pct;   // κρατάμε την πραγματική τιμή για επανασχεδίαση όταν αλλάζει η κλίμακα
   const val = document.getElementById(prefix + 'ThrottleVal');
   const fill = document.getElementById(prefix + 'ThrottleFill');
   if (val) val.textContent = pct + '%';
   if (fill) fill.style.height = Math.min(100, (pct / THROTTLE_MAX_SCALE) * 100) + '%';
+}
+function updateThrottleAbsFill(prefix, pct) {
+  if (prefix === 't') lastThrottleAbsPct = pct;
+  const val = document.getElementById(prefix + 'ThrottleAbsVal');
+  const fill = document.getElementById(prefix + 'ThrottleAbsFill');
+  if (val) val.textContent = pct + '%';
+  if (fill) fill.style.height = Math.min(100, (pct / THROTTLE_ABS_MAX_SCALE) * 100) + '%';
 }
 async function obdPollLoop() {
   if (!obdConnected) return;
@@ -1107,7 +1152,7 @@ async function obdPollLoop() {
       if (/no data/i.test(resp2) || /stopped/i.test(resp2)) {
         obdLog('  -> ' + (/no data/i.test(resp2) ? 'NO DATA' : 'STOPPED') + ' (0145 — σχετική θέση γκαζιού)');
       } else {
-        const pct = parseThrottleResponse(resp2);
+        const pct = parseThrottlePidResponse(resp2, '45');
         if (pct !== null) {
           state.throttle = Math.round(pct);
           updateThrottleFill('t', state.throttle);
@@ -1117,6 +1162,23 @@ async function obdPollLoop() {
       }
     } catch (e) {
       console.warn('OBD poll error (throttle):', e);
+    }
+    // Απόλυτη θέση γκαζιού (absolute throttle position) — τρίτο ερώτημα στον ίδιο κύκλο
+    try {
+      const resp3 = await obdSendCommand('0111', 4000);
+      if (/no data/i.test(resp3) || /stopped/i.test(resp3)) {
+        obdLog('  -> ' + (/no data/i.test(resp3) ? 'NO DATA' : 'STOPPED') + ' (0111 — απόλυτη θέση γκαζιού)');
+      } else {
+        const pctAbs = parseThrottlePidResponse(resp3, '11');
+        if (pctAbs !== null) {
+          state.throttleAbs = Math.round(pctAbs);
+          updateThrottleAbsFill('t', state.throttleAbs);
+        } else {
+          obdLog('  (η απάντηση 0111 ελήφθη αλλά δεν αναγνωρίστηκε ως θέση γκαζιού)');
+        }
+      }
+    } catch (e) {
+      console.warn('OBD poll error (throttle abs):', e);
     }
     sendNow();   // άμεση ενημέρωση μαθητή με ό,τι μαζεύτηκε αυτόν τον κύκλο, χωρίς να περιμένουμε το keepalive
   }
@@ -1292,7 +1354,7 @@ function startStudent() {
         try {
           const v = JSON.parse(ev.data);
           teacherAlertsOn = v.alertsOn !== false;
-          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: true }, 's');
+          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: true, throttleAbs: true }, 's');
           if (typeof v.clutchZoneLow === 'number' && typeof v.clutchZoneHigh === 'number' &&
               (v.clutchZoneLow !== CLUTCH_ZONE_LOW || v.clutchZoneHigh !== CLUTCH_ZONE_HIGH)) {
             CLUTCH_ZONE_LOW = v.clutchZoneLow; CLUTCH_ZONE_HIGH = v.clutchZoneHigh;
@@ -1321,6 +1383,10 @@ function startStudent() {
             THROTTLE_MAX_SCALE = v.throttleMaxScale;
           }
           updateThrottleFill('s', Math.round(v.throttle || 0));
+          if (typeof v.throttleAbsMaxScale === 'number' && v.throttleAbsMaxScale !== THROTTLE_ABS_MAX_SCALE) {
+            THROTTLE_ABS_MAX_SCALE = v.throttleAbsMaxScale;
+          }
+          updateThrottleAbsFill('s', Math.round(v.throttleAbs || 0));
           renderStudent(v.gas || 0, v.brake || 0, v.clutch || 0, v.gear || 'Ν');
         } catch (err) {}
       };
@@ -1348,7 +1414,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3, throttleMaxScale: THROTTLE_MAX_SCALE }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, throttleAbs: state.throttleAbs, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3, throttleMaxScale: THROTTLE_MAX_SCALE, throttleAbsMaxScale: THROTTLE_ABS_MAX_SCALE }));
   }
 }
 function send() {
