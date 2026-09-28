@@ -84,11 +84,7 @@
   .czHexInput.invalid { border-color:#ff453a; color:#ff9a91; }
   input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
     background:none; padding:2px; cursor:pointer; }
-  .obdDebugBox { margin:6px 14px 0; height:150px; overflow-y:auto; -webkit-overflow-scrolling:touch;
-    background:#0d1216; border:1px solid var(--line); border-radius:10px; padding:6px 8px;
-    font-family:'SF Mono',Menlo,Consolas,monospace; font-size:10px; color:#8fd18f; line-height:1.4;
-    user-select:text; -webkit-user-select:text; touch-action:pan-y; }
-  .obdDebugBox div { white-space:pre-wrap; word-break:break-all; border-bottom:1px solid rgba(255,255,255,.05); padding:1px 0; }
+  .zoneBand { position:absolute; left:0; right:0; }
   .zeroBtn { flex:0 0 auto; padding:10px 4px; border-radius:12px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:13px; font-weight:600; cursor:pointer; }
   .zeroBtn:active { background:#232b34; }
@@ -149,8 +145,6 @@
   .fill.rpm.rpmNormal  { background:linear-gradient(to top,#1f8a37,#32d74b); box-shadow:0 0 20px rgba(50,215,75,.4); }
   .fill.rpm.rpmCaution { background:linear-gradient(to top,#c98a1f,#f2b134); box-shadow:0 0 22px rgba(242,177,52,.45); }
   .fill.rpm.rpmRedline { background:linear-gradient(to top,#c22f27,#ff453a); box-shadow:0 0 24px rgba(255,69,58,.5); }
-  .fill.throttle { background:linear-gradient(to top,#0e8fae,#22d3ee); box-shadow:0 0 20px rgba(34,211,238,.4); }
-  .fill.throttleAbs { background:linear-gradient(to top,#4c5fd6,#8aa0ff); box-shadow:0 0 20px rgba(138,160,255,.4); }
   .handbrakeControl { display:flex; flex-direction:column; align-items:center; gap:4px; }
   .hbLight { width:9px; height:9px; border-radius:50%; background:#3a1216;
     transition:background .15s, box-shadow .15s; }
@@ -340,6 +334,34 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="throttleMaxScaleVal">100%</span>
       <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(5)">+</button>
     </div>
+    <div class="gearWrapLabel">ΖΩΝΕΣ ΓΚΑΖΙ (ΣΧΕΤ.)</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Από</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('Throttle','low',-1)">−</button>
+      <span class="czVal" id="zoneThrottleLowVal">5%</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('Throttle','low',1)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Έως</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('Throttle','high',-1)">−</button>
+      <span class="czVal" id="zoneThrottleHighVal">15%</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('Throttle','high',1)">+</button>
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Χαμηλή</span>
+      <input type="text" class="czHexInput" id="zoneThrottleHex1" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('Throttle','c1',this)">
+      <input type="color" id="zoneThrottleColor1" oninput="setZoneColor('Throttle','c1',this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Μεσαία</span>
+      <input type="text" class="czHexInput" id="zoneThrottleHex2" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('Throttle','c2',this)">
+      <input type="color" id="zoneThrottleColor2" oninput="setZoneColor('Throttle','c2',this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Υψηλή</span>
+      <input type="text" class="czHexInput" id="zoneThrottleHex3" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('Throttle','c3',this)">
+      <input type="color" id="zoneThrottleColor3" oninput="setZoneColor('Throttle','c3',this.value)">
+    </div>
     <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΓΚΑΖΙ (ΑΠΟΛ.)</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Έως</span>
@@ -347,11 +369,33 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="throttleAbsMaxScaleVal">100%</span>
       <button class="stepBtn" onpointerdown="adjustThrottleAbsMaxScale(5)">+</button>
     </div>
-    <div class="gearWrapLabel">ΔΙΑΓΝΩΣΤΙΚΑ OBD-II</div>
-    <div class="obdDebugBox" id="obdDebugLog"></div>
-    <div style="display:flex; justify-content:center; gap:8px; padding:6px 14px 0;">
-      <button class="stepBtn" style="width:auto; padding:8px 16px;" id="obdCopyBtn" onpointerdown="copyObdLog()">📋 Αντιγραφή όλων</button>
-      <button class="stepBtn" style="width:auto; padding:8px 16px;" onpointerdown="document.getElementById('obdDebugLog').innerHTML=''">Καθαρισμός</button>
+    <div class="gearWrapLabel">ΖΩΝΕΣ ΓΚΑΖΙ (ΑΠΟΛ.)</div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Από</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('ThrottleAbs','low',-1)">−</button>
+      <span class="czVal" id="zoneThrottleAbsLowVal">5%</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('ThrottleAbs','low',1)">+</button>
+    </div>
+    <div class="clutchZoneRow">
+      <span class="czLabel">Έως</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('ThrottleAbs','high',-1)">−</button>
+      <span class="czVal" id="zoneThrottleAbsHighVal">15%</span>
+      <button class="stepBtn" onpointerdown="adjustZoneBound('ThrottleAbs','high',1)">+</button>
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Χαμηλή</span>
+      <input type="text" class="czHexInput" id="zoneThrottleAbsHex1" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('ThrottleAbs','c1',this)">
+      <input type="color" id="zoneThrottleAbsColor1" oninput="setZoneColor('ThrottleAbs','c1',this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Μεσαία</span>
+      <input type="text" class="czHexInput" id="zoneThrottleAbsHex2" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('ThrottleAbs','c2',this)">
+      <input type="color" id="zoneThrottleAbsColor2" oninput="setZoneColor('ThrottleAbs','c2',this.value)">
+    </div>
+    <div class="clutchColorRow">
+      <span class="czLabel">Υψηλή</span>
+      <input type="text" class="czHexInput" id="zoneThrottleAbsHex3" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('ThrottleAbs','c3',this)">
+      <input type="color" id="zoneThrottleAbsColor3" oninput="setZoneColor('ThrottleAbs','c3',this.value)">
     </div>
   </div>
   <div class="barsArea">
@@ -394,13 +438,13 @@ window.FIREBASE_CONFIG = {
     <div class="pedalCol" id="tThrottleCol">
       <div class="pedalLabel" style="color:#22d3ee;">ΓΚΑΖΙ ΣΧΕΤ.</div>
       <div class="pedalValue" id="tThrottleVal">—</div>
-      <div class="track"><div class="ticks"></div><div class="fill throttle" id="tThrottleFill"></div></div>
+      <div class="track"><div class="ticks" id="tThrottleTicks"></div><div class="clutchVividLayer" id="tThrottleVivid" style="clip-path:inset(100% 0 0 0)"></div><div class="clutchMarkersLayer" id="tThrottleMarkers"></div></div>
       <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
     </div>
     <div class="pedalCol" id="tThrottleAbsCol">
       <div class="pedalLabel" style="color:#8aa0ff;">ΓΚΑΖΙ ΑΠΟΛ.</div>
       <div class="pedalValue" id="tThrottleAbsVal">—</div>
-      <div class="track"><div class="ticks"></div><div class="fill throttleAbs" id="tThrottleAbsFill"></div></div>
+      <div class="track"><div class="ticks" id="tThrottleAbsTicks"></div><div class="clutchVividLayer" id="tThrottleAbsVivid" style="clip-path:inset(100% 0 0 0)"></div><div class="clutchMarkersLayer" id="tThrottleAbsMarkers"></div></div>
       <button class="zeroBtn" style="visibility:hidden" tabindex="-1">—</button>
     </div>
   </div>
@@ -480,12 +524,12 @@ window.FIREBASE_CONFIG = {
     <div class="pedalCol" id="sThrottleCol">
       <div class="pedalLabel" style="color:#22d3ee;">ΓΚΑΖΙ ΣΧΕΤ.</div>
       <div class="pedalValue" id="sThrottleVal">—</div>
-      <div class="track"><div class="ticks"></div><div class="fill throttle" id="sThrottleFill"></div></div>
+      <div class="track"><div class="ticks" id="sThrottleTicks"></div><div class="clutchVividLayer" id="sThrottleVivid" style="clip-path:inset(100% 0 0 0)"></div><div class="clutchMarkersLayer" id="sThrottleMarkers"></div></div>
     </div>
     <div class="pedalCol" id="sThrottleAbsCol">
       <div class="pedalLabel" style="color:#8aa0ff;">ΓΚΑΖΙ ΑΠΟΛ.</div>
       <div class="pedalValue" id="sThrottleAbsVal">—</div>
-      <div class="track"><div class="ticks"></div><div class="fill throttleAbs" id="sThrottleAbsFill"></div></div>
+      <div class="track"><div class="ticks" id="sThrottleAbsTicks"></div><div class="clutchVividLayer" id="sThrottleAbsVivid" style="clip-path:inset(100% 0 0 0)"></div><div class="clutchMarkersLayer" id="sThrottleAbsMarkers"></div></div>
     </div>
   </div>
 </div>
@@ -967,34 +1011,8 @@ const OBD_CANDIDATE_SERVICES = [
 ];
 let obdDevice = null, obdServer = null, obdWriteChar = null, obdNotifyChar = null;
 function obdLog(msg) {
-  console.log('[OBD]', msg);
-  const el = document.getElementById('obdDebugLog');
-  if (!el) return;
-  const line = document.createElement('div');
-  const t = new Date();
-  const ts = String(t.getHours()).padStart(2,'0') + ':' + String(t.getMinutes()).padStart(2,'0') + ':' + String(t.getSeconds()).padStart(2,'0');
-  line.textContent = ts + '  ' + msg;
-  el.appendChild(line);
-  while (el.children.length > 60) el.removeChild(el.firstChild);
-  el.scrollTop = el.scrollHeight;
+  console.log('[OBD]', msg);   // μόνο στην κονσόλα — το ορατό κουτί διαγνωστικών αφαιρέθηκε
 }
-window.copyObdLog = function() {
-  const el = document.getElementById('obdDebugLog');
-  const btn = document.getElementById('obdCopyBtn');
-  const text = el ? Array.from(el.children).map(d => d.textContent).join('\n') : '';
-  const showResult = (ok) => {
-    if (!btn) return;
-    const original = '📋 Αντιγραφή όλων';
-    btn.textContent = ok ? '✓ Αντιγράφηκε' : 'Δεν έγινε — επίλεξε χειροκίνητα';
-    setTimeout(() => { btn.textContent = original; }, 1500);
-  };
-  if (!text) { showResult(false); return; }
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => showResult(true)).catch(() => showResult(false));
-  } else {
-    showResult(false);
-  }
-};
 let obdRxBuffer = '', obdConnected = false, obdPollTimer = null;
 
 function setObdBtnState(cls, label) {
@@ -1107,20 +1125,143 @@ window.adjustThrottleAbsMaxScale = function(delta) {
 };
 document.getElementById('throttleMaxScaleVal').textContent = THROTTLE_MAX_SCALE + '%';
 document.getElementById('throttleAbsMaxScaleVal').textContent = THROTTLE_ABS_MAX_SCALE + '%';
+
+// ---------- Ζώνες μπαρών γκαζιού (στα πρότυπα του συμπλέκτη) ----------
+// Τα όρια είναι σε ΠΡΑΓΜΑΤΙΚΟ % γκαζιού και σχεδιάζονται σε σχέση με τη μέγιστη κλίμακα της κάθε μπάρας.
+const ZONE_DEFAULTS = { low: 5, high: 15, c1: '#32d74b', c2: '#f2b134', c3: '#ff453a' };
+const HEX_RE = /^#[0-9a-fA-F]{6}$/;
+function loadZones(key) {
+  try {
+    const s = JSON.parse(localStorage.getItem('pedalGuideZones_' + key));
+    if (s && typeof s.low === 'number' && typeof s.high === 'number' &&
+        HEX_RE.test(s.c1) && HEX_RE.test(s.c2) && HEX_RE.test(s.c3)) {
+      const low = Math.max(0, Math.min(99, Math.round(s.low)));
+      const high = Math.max(low + 1, Math.min(100, Math.round(s.high)));
+      return { low, high, c1: s.c1, c2: s.c2, c3: s.c3 };
+    }
+  } catch (e) {}
+  return { ...ZONE_DEFAULTS };
+}
+const ZONES = { Throttle: loadZones('Throttle'), ThrottleAbs: loadZones('ThrottleAbs') };
+function zoneScale(key) { return key === 'Throttle' ? THROTTLE_MAX_SCALE : THROTTLE_ABS_MAX_SCALE; }
+function saveZones(key) { localStorage.setItem('pedalGuideZones_' + key, JSON.stringify(ZONES[key])); }
+
+function buildZoneBar(prefix, key) {
+  const ticks = document.getElementById(prefix + key + 'Ticks');
+  const vivid = document.getElementById(prefix + key + 'Vivid');
+  const markers = document.getElementById(prefix + key + 'Markers');
+  if (!ticks || !vivid || !markers) return;
+  for (let i = 1; i <= 3; i++) {
+    const pale = document.createElement('div');
+    pale.className = 'zoneBand'; pale.id = prefix + key + 'Pale' + i;
+    ticks.appendChild(pale);
+    const viv = document.createElement('div');
+    viv.className = 'zoneBand'; viv.id = prefix + key + 'VividBand' + i;
+    vivid.appendChild(viv);
+  }
+  ['Low', 'High'].forEach(w => {
+    const m = document.createElement('div');
+    m.className = 'zoneMarker'; m.id = prefix + key + 'Marker' + w;
+    markers.appendChild(m);
+  });
+  const level = document.createElement('div');
+  level.className = 'clutchLevelLine'; level.id = prefix + key + 'Level';
+  markers.appendChild(level);
+}
+function layoutZoneBar(prefix, key) {
+  const z = ZONES[key], sc = zoneScale(key);
+  const lowD = Math.min(100, (z.low / sc) * 100);
+  const highD = Math.min(100, (z.high / sc) * 100);
+  const bounds = [[0, lowD], [lowD, highD], [highD, 100]];
+  bounds.forEach(([b0, b1], idx) => {
+    const i = idx + 1;
+    ['Pale', 'VividBand'].forEach(kind => {
+      const el = document.getElementById(prefix + key + kind + i);
+      if (el) { el.style.bottom = b0 + '%'; el.style.height = Math.max(0, b1 - b0) + '%'; }
+    });
+  });
+  const mLow = document.getElementById(prefix + key + 'MarkerLow');
+  const mHigh = document.getElementById(prefix + key + 'MarkerHigh');
+  // Όριο εκτός κλίμακας (π.χ. ζώνη έως 15% με κλίμακα 10%) → η γραμμή του κρύβεται αντί να κολλήσει στην κορυφή
+  if (mLow) { mLow.style.bottom = lowD + '%'; mLow.style.display = lowD >= 100 ? 'none' : ''; }
+  if (mHigh) { mHigh.style.bottom = highD + '%'; mHigh.style.display = highD >= 100 ? 'none' : ''; }
+}
+function colorZoneBar(prefix, key) {
+  const z = ZONES[key];
+  for (let i = 1; i <= 3; i++) {
+    const pale = document.getElementById(prefix + key + 'Pale' + i);
+    const viv = document.getElementById(prefix + key + 'VividBand' + i);
+    if (pale) pale.style.background = hexToRgba(z['c' + i], 0.28);   // αχνή βάση
+    if (viv) viv.style.background = z['c' + i];                      // ζωηρό, αποκαλύπτεται με clip-path
+  }
+}
+function updateZoneBar(prefix, key, pct) {
+  layoutZoneBar(prefix, key);   // φθηνό — έτσι η διάταξη ακολουθεί αυτόματα κάθε αλλαγή κλίμακας, και στον μαθητή
+  const disp = Math.min(100, (pct / zoneScale(key)) * 100);
+  const val = document.getElementById(prefix + key + 'Val');
+  const vivid = document.getElementById(prefix + key + 'Vivid');
+  const level = document.getElementById(prefix + key + 'Level');
+  if (val) val.textContent = pct + '%';   // πάντα η πραγματική τιμή, όχι η κλιμακωμένη
+  if (vivid) vivid.style.clipPath = 'inset(' + (100 - disp) + '% 0 0 0)';
+  if (level) level.style.bottom = clutchLevelLinePos(disp);
+}
 function updateThrottleFill(prefix, pct) {
-  if (prefix === 't') lastThrottlePct = pct;   // κρατάμε την πραγματική τιμή για επανασχεδίαση όταν αλλάζει η κλίμακα
-  const val = document.getElementById(prefix + 'ThrottleVal');
-  const fill = document.getElementById(prefix + 'ThrottleFill');
-  if (val) val.textContent = pct + '%';
-  if (fill) fill.style.height = Math.min(100, (pct / THROTTLE_MAX_SCALE) * 100) + '%';
+  if (prefix === 't') lastThrottlePct = pct;   // κρατάμε την πραγματική τιμή για επανασχεδίαση όταν αλλάζει κλίμακα/ζώνη
+  updateZoneBar(prefix, 'Throttle', pct);
 }
 function updateThrottleAbsFill(prefix, pct) {
   if (prefix === 't') lastThrottleAbsPct = pct;
-  const val = document.getElementById(prefix + 'ThrottleAbsVal');
-  const fill = document.getElementById(prefix + 'ThrottleAbsFill');
-  if (val) val.textContent = pct + '%';
-  if (fill) fill.style.height = Math.min(100, (pct / THROTTLE_ABS_MAX_SCALE) * 100) + '%';
+  updateZoneBar(prefix, 'ThrottleAbs', pct);
 }
+function refreshZoneSettingsUI(key) {
+  const z = ZONES[key];
+  document.getElementById('zone' + key + 'LowVal').textContent = z.low + '%';
+  document.getElementById('zone' + key + 'HighVal').textContent = z.high + '%';
+  for (let i = 1; i <= 3; i++) {
+    const hexIn = document.getElementById('zone' + key + 'Hex' + i);
+    const colIn = document.getElementById('zone' + key + 'Color' + i);
+    if (hexIn && document.activeElement !== hexIn) hexIn.value = z['c' + i].toUpperCase();
+    if (colIn) colIn.value = z['c' + i];
+  }
+}
+function redrawTeacherZoneBar(key) {
+  if (key === 'Throttle') updateThrottleFill('t', lastThrottlePct);
+  else updateThrottleAbsFill('t', lastThrottleAbsPct);
+}
+window.adjustZoneBound = function(key, which, delta) {
+  const z = ZONES[key];
+  if (which === 'low') z.low = Math.max(0, Math.min(z.high - 1, z.low + delta));
+  else z.high = Math.max(z.low + 1, Math.min(100, z.high + delta));
+  saveZones(key);
+  refreshZoneSettingsUI(key);
+  redrawTeacherZoneBar(key);
+  sendNow();
+};
+window.setZoneColor = function(key, c, hex) {
+  if (!HEX_RE.test(hex)) return;
+  ZONES[key][c] = hex;
+  saveZones(key);
+  colorZoneBar('t', key);
+  refreshZoneSettingsUI(key);
+  sendNow();
+};
+window.onZoneHexInput = function(key, c, inputEl) {
+  let val = inputEl.value.trim();
+  if (val && !val.startsWith('#')) val = '#' + val;
+  const isValid = HEX_RE.test(val);
+  inputEl.classList.toggle('invalid', val.length > 1 && !isValid);
+  if (isValid) setZoneColor(key, c, val);
+};
+['t', 's'].forEach(prefix => {
+  ['Throttle', 'ThrottleAbs'].forEach(key => {
+    buildZoneBar(prefix, key);
+    colorZoneBar(prefix, key);
+  });
+  updateThrottleFill(prefix, 0);
+  updateThrottleAbsFill(prefix, 0);
+});
+refreshZoneSettingsUI('Throttle');
+refreshZoneSettingsUI('ThrottleAbs');
 async function obdPollLoop() {
   if (!obdConnected) return;
   let nextDelay = 250;
@@ -1382,6 +1523,13 @@ function startStudent() {
           if (typeof v.throttleMaxScale === 'number' && v.throttleMaxScale !== THROTTLE_MAX_SCALE) {
             THROTTLE_MAX_SCALE = v.throttleMaxScale;
           }
+          ['Throttle', 'ThrottleAbs'].forEach(key => {
+            const incoming = key === 'Throttle' ? v.throttleZones : v.throttleAbsZones;
+            if (incoming && JSON.stringify(incoming) !== JSON.stringify(ZONES[key])) {
+              ZONES[key] = incoming;
+              colorZoneBar('s', key);   // η διάταξη ορίων γίνεται αυτόματα στο update παρακάτω
+            }
+          });
           updateThrottleFill('s', Math.round(v.throttle || 0));
           if (typeof v.throttleAbsMaxScale === 'number' && v.throttleAbsMaxScale !== THROTTLE_ABS_MAX_SCALE) {
             THROTTLE_ABS_MAX_SCALE = v.throttleAbsMaxScale;
@@ -1414,7 +1562,7 @@ let lastSend = 0, sendTimer = null;
 function sendNow() {
   if (channel && channel.readyState === 'open') {
     lastSend = Date.now();
-    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, throttleAbs: state.throttleAbs, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3, throttleMaxScale: THROTTLE_MAX_SCALE, throttleAbsMaxScale: THROTTLE_ABS_MAX_SCALE }));
+    channel.send(JSON.stringify({ gas: state.gas, brake: state.brake, clutch: state.clutch, gear: state.gear, handbrake: state.handbrake, rpm: state.rpm, throttle: state.throttle, throttleAbs: state.throttleAbs, alertsOn: state.alertsOn, visible: state.visible, clutchZoneLow: CLUTCH_ZONE_LOW, clutchZoneHigh: CLUTCH_ZONE_HIGH, clutchColors: CLUTCH_COLORS, clutchPosIndex: clutchPosIndex, clutchPos2: CLUTCH_POS2, clutchPos3: CLUTCH_POS3, throttleMaxScale: THROTTLE_MAX_SCALE, throttleAbsMaxScale: THROTTLE_ABS_MAX_SCALE, throttleZones: ZONES.Throttle, throttleAbsZones: ZONES.ThrottleAbs }));
   }
 }
 function send() {
