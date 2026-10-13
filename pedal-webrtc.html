@@ -85,6 +85,13 @@
   input[type=color] { width:44px; height:32px; border:1px solid var(--line); border-radius:8px;
     background:none; padding:2px; cursor:pointer; }
   .zoneBand { position:absolute; left:0; right:0; }
+  .settingsCard { margin:0 10px 14px; padding:10px 0 8px; border-radius:14px;
+    background:rgba(255,255,255,.035); border:1px solid var(--line);
+    border-left:4px solid var(--accent, var(--line)); }
+  .settingsCardTitle { font-size:15px; font-weight:800; color:var(--accent, var(--text));
+    padding:2px 14px 4px; letter-spacing:.3px; }
+  .settingsCard .gearWrapLabel { text-align:left; padding:10px 14px 2px; font-size:10.5px; }
+  .settingsCard .gearRow { border-top:0; }
   .rpmAlertRow .czLabel { flex:0 0 70px; width:auto; white-space:nowrap; }
   .rpmAlertToggle { min-width:48px; height:34px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel); color:var(--muted); font-size:12px; font-weight:700; margin-left:auto; }
@@ -255,7 +262,8 @@ window.FIREBASE_CONFIG = {
       <span class="pedalSettingsTitle">Ρυθμίσεις</span>
       <button class="pedalSettingsClose" onpointerdown="togglePedalSettings()">✕</button>
     </div>
-    <div class="gearWrapLabel" style="padding-top:0;">ΕΜΦΑΝΙΣΗ ΠΕΝΤΑΛ</div>
+    <div class="settingsCard" style="--accent:var(--muted);">
+      <div class="settingsCardTitle">Εμφάνιση στηλών</div>
     <div class="gearRow pedalVisRow" style="border-top:0;">
       <button class="gearBtn" data-pedal="clutch" onpointerdown="togglePedalVisible('clutch')">Συμπλέκτης</button>
       <button class="gearBtn" data-pedal="brake" onpointerdown="togglePedalVisible('brake')">Φρένο</button>
@@ -265,7 +273,10 @@ window.FIREBASE_CONFIG = {
       <button class="gearBtn" data-pedal="throttle" onpointerdown="togglePedalVisible('throttle')">Γκάζι Σχετ.</button>
       <button class="gearBtn" data-pedal="throttleAbs" onpointerdown="togglePedalVisible('throttleAbs')">Γκάζι Απόλ.</button>
     </div>
-    <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ ΣΥΜΠΛΕΚΤΗ</div>
+    </div>
+    <div class="settingsCard" style="--accent:var(--clutch);">
+      <div class="settingsCardTitle">Συμπλέκτης</div>
+    <div class="gearWrapLabel">ΖΩΝΗ ΗΜΙΣΥΜΠΛΕΞΗΣ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Από</span>
       <button class="stepBtn" onpointerdown="adjustClutchZone('low',-5)">−</button>
@@ -278,7 +289,7 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchHighVal">70%</span>
       <button class="stepBtn" onpointerdown="adjustClutchZone('high',5)">+</button>
     </div>
-    <div class="gearWrapLabel">ΘΕΣΕΙΣ 2 &amp; 3 (% ΔΙΑΔΡΟΜΗΣ ΣΥΜΠΛΕΚΤΗ)</div>
+    <div class="gearWrapLabel">ΘΕΣΕΙΣ 2 &amp; 3 (% ΔΙΑΔΡΟΜΗΣ)</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Θέση 2</span>
       <button class="stepBtn" onpointerdown="adjustClutchPosition23(2,-5)">−</button>
@@ -291,7 +302,7 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchPos3Val">70%</span>
       <button class="stepBtn" onpointerdown="adjustClutchPosition23(3,5)">+</button>
     </div>
-    <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="gearWrapLabel">ΧΡΩΜΑΤΑ ΖΩΝΩΝ</div>
     <div class="clutchColorRow">
       <span class="czLabel">Πατημένος</span>
       <input type="text" class="czHexInput" id="clutchHexPressed" value="#6B7785" maxlength="7"
@@ -310,7 +321,7 @@ window.FIREBASE_CONFIG = {
         onfocus="this.select()" oninput="onClutchHexInput('released', this)">
       <input type="color" id="clutchColorReleased" value="#a78bfa" oninput="setClutchZoneColor('released', this.value)">
     </div>
-    <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ ΜΕΤΑΒΑΣΗΣ ΑΝΑ ΘΕΣΗ ΣΥΜΠΛΕΚΤΗ</div>
+    <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ ΜΕΤΑΒΑΣΗΣ ΑΝΑ ΘΕΣΗ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Θέση 1</span>
       <button class="stepBtn" onpointerdown="adjustClutchDuration(1,-50)">−</button>
@@ -335,14 +346,17 @@ window.FIREBASE_CONFIG = {
       <span class="czVal" id="clutchDur4">420ms</span>
       <button class="stepBtn" onpointerdown="adjustClutchDuration(4,50)">+</button>
     </div>
-    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΓΚΑΖΙ (ΣΧΕΤ.)</div>
+    </div>
+    <div class="settingsCard" style="--accent:#22d3ee;">
+      <div class="settingsCardTitle">Γκάζι σχετικό (OBD)</div>
+    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Έως</span>
       <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(-5)">−</button>
       <span class="czVal" id="throttleMaxScaleVal">100%</span>
       <button class="stepBtn" onpointerdown="adjustThrottleMaxScale(5)">+</button>
     </div>
-    <div class="gearWrapLabel">ΖΩΝΕΣ ΓΚΑΖΙ (ΣΧΕΤ.)</div>
+    <div class="gearWrapLabel">ΖΩΝΕΣ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Από</span>
       <button class="stepBtn" onpointerdown="adjustZoneBound('Throttle','low',-1)">−</button>
@@ -370,14 +384,17 @@ window.FIREBASE_CONFIG = {
       <input type="text" class="czHexInput" id="zoneThrottleHex3" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('Throttle','c3',this)">
       <input type="color" id="zoneThrottleColor3" oninput="setZoneColor('Throttle','c3',this.value)">
     </div>
-    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ ΓΚΑΖΙ (ΑΠΟΛ.)</div>
+    </div>
+    <div class="settingsCard" style="--accent:#8aa0ff;">
+      <div class="settingsCardTitle">Γκάζι απόλυτο (OBD)</div>
+    <div class="gearWrapLabel">ΜΕΓΙΣΤΗ ΚΛΙΜΑΚΑ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Έως</span>
       <button class="stepBtn" onpointerdown="adjustThrottleAbsMaxScale(-5)">−</button>
       <span class="czVal" id="throttleAbsMaxScaleVal">100%</span>
       <button class="stepBtn" onpointerdown="adjustThrottleAbsMaxScale(5)">+</button>
     </div>
-    <div class="gearWrapLabel">ΖΩΝΕΣ ΓΚΑΖΙ (ΑΠΟΛ.)</div>
+    <div class="gearWrapLabel">ΖΩΝΕΣ</div>
     <div class="clutchZoneRow">
       <span class="czLabel">Από</span>
       <button class="stepBtn" onpointerdown="adjustZoneBound('ThrottleAbs','low',-1)">−</button>
@@ -405,7 +422,10 @@ window.FIREBASE_CONFIG = {
       <input type="text" class="czHexInput" id="zoneThrottleAbsHex3" maxlength="7" onfocus="this.select()" oninput="onZoneHexInput('ThrottleAbs','c3',this)">
       <input type="color" id="zoneThrottleAbsColor3" oninput="setZoneColor('ThrottleAbs','c3',this.value)">
     </div>
-    <div class="gearWrapLabel">ΗΧΗΤΙΚΗ ΕΙΔΟΠΟΙΗΣΗ ΣΤΡΟΦΩΝ</div>
+    </div>
+    <div class="settingsCard" style="--accent:#8fd18f;">
+      <div class="settingsCardTitle">Στροφές (OBD)</div>
+    <div class="gearWrapLabel">ΗΧΗΤΙΚΗ ΕΙΔΟΠΟΙΗΣΗ</div>
     <div class="clutchZoneRow rpmAlertRow">
       <span class="czLabel">Κάτω από</span>
       <button class="stepBtn" onpointerdown="adjustRpmAlert('low',-50)">−</button>
@@ -433,6 +453,7 @@ window.FIREBASE_CONFIG = {
       <button class="stepBtn" onclick="testRpmSound('high')">▶</button>
       <button class="stepBtn" onclick="resetRpmSound('high')">↺</button>
       <input type="file" accept="audio/*" id="rpmSoundFileHigh" style="display:none" onchange="onRpmSoundFile('high', this)">
+    </div>
     </div>
   </div>
   <div class="barsArea">
