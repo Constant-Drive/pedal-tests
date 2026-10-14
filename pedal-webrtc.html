@@ -1474,9 +1474,10 @@ loadStoredRpmSounds();
 ['pointerup', 'touchend', 'click', 'keydown'].forEach(ev => {
   document.addEventListener(ev, () => { try { ensureAudio(); } catch (e) {} }, { passive: true });
 });
-async function obdPollLoop() {
-  if (!obdConnected) return;
+async function obdPollLoop(session) {
+  if (!obdConnected || session !== obdSession) return;
   let nextDelay = 250;
+  let rpmOk = false;
   try {
     const resp = await obdSendCommand('010C', 4000);   // αρκετός χρόνος ώστε ο ELM327 να προλάβει μόνος του να πει NO DATA
     if (/no data/i.test(resp)) {
@@ -1491,6 +1492,7 @@ async function obdPollLoop() {
         state.rpm = Math.round(rpm);
         updateRpmFill('t', state.rpm);
         checkRpmAlerts(state.rpm);
+        rpmOk = true;
       } else {
         obdLog('  (η απάντηση ελήφθη αλλά δεν αναγνωρίστηκε ως RPM)');
       }
@@ -1498,6 +1500,27 @@ async function obdPollLoop() {
   } catch (e) {
     console.warn('OBD poll error:', e);
     nextDelay = 800;   // δώσε χρόνο στον προσαρμογέα να "συνέλθει" πριν ξαναρωτήσουμε
+  }
+  if (session !== obdSession) return;   // στο μεταξύ έγινε αποσύνδεση/νέα σύνδεση — αυτός ο κύκλος σταματά
+  obdFailStreak = rpmOk ? 0 : obdFailStreak + 1;
+  if (obdConnected && obdFailStreak >= OBD_REINIT_AFTER) {
+    // Το Bluetooth είναι συνδεδεμένο αλλά το αυτοκίνητο δεν απαντά (π.χ. έσβησε η μίζα): μηδενίζουμε τις ενδείξεις
+    // και ξανακάνουμε αρχικοποίηση, μέχρι να ξαναζωντανέψει το αυτοκίνητο.
+    obdLog('Το αυτοκίνητο δεν απαντά — νέα αρχικοποίηση ELM327…');
+    state.rpm = 0; state.throttle = 0; state.throttleAbs = 0;
+    updateRpmFill('t', 0); updateThrottleFill('t', 0); updateThrottleAbsFill('t', 0);
+    rpmAlertState.prev = null;
+    setObdBtnState('connecting', '⏳');
+    sendNow();
+    try {
+      await obdInitSequence();
+      obdFailStreak = 0;
+      if (session === obdSession && obdConnected) setObdBtnState('connected', '🔌');
+    } catch (e) {
+      nextDelay = 3000;
+    }
+    if (session === obdSession && obdConnected) obdPollTimer = setTimeout(() => obdPollLoop(session), nextDelay);
+    return;
   }
   if (obdConnected) {
     // Σχετική θέση γκαζιού (relative throttle position) — ίδια λογική, δεύτερο ερώτημα στον ίδιο κύκλο
@@ -1536,7 +1559,7 @@ async function obdPollLoop() {
     }
     sendNow();   // άμεση ενημέρωση μαθητή με ό,τι μαζεύτηκε αυτόν τον κύκλο, χωρίς να περιμένουμε το keepalive
   }
-  if (obdConnected) obdPollTimer = setTimeout(obdPollLoop, nextDelay);
+  if (obdConnected && session === obdSession) obdPollTimer = setTimeout(() => obdPollLoop(session), nextDelay);
 }
 async function obdInitSequence() {
   for (const cmd of ['ATZ', 'ATE0', 'ATL0', 'ATSP0']) {
@@ -1566,9 +1589,82 @@ async function obdInitSequence() {
     }
   }
 }
+// ---------- Σύνδεση OBD με αυτόματη επανασύνδεση ----------
+// Μετά την πρώτη επιλογή συσκευής, το gatt.connect() στην ίδια συσκευή δεν χρειάζεται νέο πάτημα ή παράθυρο επιλογής.
+let obdWanted = false;             // ο χρήστης θέλει σύνδεση — μένει true μέχρι να πατήσει ο ίδιος αποσύνδεση
+let obdSession = 0;                // αυξάνεται σε κάθε νέα σύνδεση, ώστε να μην τρέχουν ποτέ δύο κύκλοι ανάγνωσης μαζί
+let obdReconnectTimer = null, obdSetupInProgress = false, obdFailStreak = 0;
+const OBD_REINIT_AFTER = 6;        // συνεχόμενες αποτυχίες ανάγνωσης στροφών πριν ξανακάνουμε αρχικοποίηση ELM327
+
+async function obdSetupGatt() {
+  obdServer = await obdDevice.gatt.connect();
+  obdLog('Συνδέθηκε GATT server');
+  const found = await obdFindCharacteristics(obdServer);
+  if (!found) throw new Error('Δεν βρέθηκαν κατάλληλα characteristics');
+  obdNotifyChar = found.notifyChar;   // μετά από επανασύνδεση τα παλιά characteristics δεν ισχύουν — τα ξαναβρίσκουμε
+  obdWriteChar = found.writeChar;
+  obdWriteChain = Promise.resolve();
+  await obdNotifyChar.startNotifications();
+  await obdInitSequence();            // ο προσαρμογέας μόλις ξύπνησε — χρειάζεται ξανά αρχικοποίηση
+  obdConnected = true;
+  obdSession++;
+  obdFailStreak = 0;
+  rpmAlertState.prev = null;
+  setObdBtnState('connected', '🔌');
+  obdLog('Ξεκινά ερώτημα RPM (010C)…');
+  obdPollLoop(obdSession);
+}
+function obdOnDisconnected() {
+  obdConnected = false;
+  clearTimeout(obdPollTimer);
+  rpmAlertState.prev = null;
+  obdLog('GATT αποσυνδέθηκε');
+  if (obdWanted) { setObdBtnState('connecting', '⏳'); obdScheduleReconnect(2000); }
+  else setObdBtnState('', '🔌');
+}
+function obdScheduleReconnect(delay) {
+  clearTimeout(obdReconnectTimer);
+  obdReconnectTimer = setTimeout(obdTryReconnect, delay);
+}
+async function obdTryReconnect() {
+  if (!obdWanted || !obdDevice || obdConnected || obdSetupInProgress) return;
+  obdSetupInProgress = true;
+  try {
+    obdLog('Προσπάθεια αυτόματης επανασύνδεσης…');
+    await obdSetupGatt();
+    obdLog('Επανασύνδεση OK');
+  } catch (e) {
+    obdLog('Επανασύνδεση απέτυχε: ' + (e && e.message ? e.message : e));
+    try { if (obdDevice.gatt.connected) obdDevice.gatt.disconnect(); } catch (_) {}
+    if (obdWanted) { setObdBtnState('connecting', '⏳'); obdScheduleReconnect(4000); }
+  } finally {
+    obdSetupInProgress = false;
+  }
+}
+// Στο άνοιγμα της εφαρμογής: αν ο browser θυμάται τη συσκευή από προηγούμενη φορά, συνδέεται χωρίς πάτημα
+async function obdAutoConnectOnStart() {
+  const savedId = localStorage.getItem('pedalGuideObdAuto');
+  if (!savedId || !navigator.bluetooth || !navigator.bluetooth.getDevices) return;
+  try {
+    const devices = await navigator.bluetooth.getDevices();
+    const dev = devices.find(d => d.id === savedId);
+    if (!dev) { obdLog('Η προηγούμενη συσκευή δεν είναι διαθέσιμη χωρίς νέα επιλογή'); return; }
+    obdDevice = dev;
+    obdDevice.addEventListener('gattserverdisconnected', obdOnDisconnected);
+    obdWanted = true;
+    setObdBtnState('connecting', '⏳');
+    obdScheduleReconnect(500);
+  } catch (e) {
+    console.warn('OBD auto-connect error:', e);
+  }
+}
 window.toggleObdConnection = async function() {
-  if (obdConnected) {
+  if (obdConnected || obdWanted) {   // συνδεδεμένο ή σε αυτόματη επανασύνδεση → πλήρης αποσύνδεση
+    obdWanted = false;
+    localStorage.removeItem('pedalGuideObdAuto');
+    clearTimeout(obdReconnectTimer);
     obdConnected = false;
+    obdSession++;
     clearTimeout(obdPollTimer);
     try { if (obdDevice && obdDevice.gatt.connected) obdDevice.gatt.disconnect(); } catch (e) {}
     obdLog('Αποσύνδεση από τον χρήστη');
@@ -1589,31 +1685,24 @@ window.toggleObdConnection = async function() {
       optionalServices: OBD_CANDIDATE_SERVICES
     });
     obdLog('Επιλέχθηκε συσκευή: ' + (obdDevice.name || '(χωρίς όνομα)'));
-    obdDevice.addEventListener('gattserverdisconnected', () => {
-      obdConnected = false;
-      clearTimeout(obdPollTimer);
-      obdLog('GATT αποσυνδέθηκε (απροσδόκητα)');
-      setObdBtnState('error', '🔌');
-    });
-    obdServer = await obdDevice.gatt.connect();
-    obdLog('Συνδέθηκε GATT server');
-    const found = await obdFindCharacteristics(obdServer);
-    if (!found) { obdLog('ΔΕΝ βρέθηκε ζεύγος notify/write σε κανένα service'); throw new Error('Δεν βρέθηκαν κατάλληλα characteristics'); }
-    obdNotifyChar = found.notifyChar;
-    obdWriteChar = found.writeChar;
-    obdLog('Επιλέχθηκαν -> notify: ' + obdNotifyChar.uuid + '  write: ' + obdWriteChar.uuid);
-    await obdNotifyChar.startNotifications();
-    obdLog('startNotifications() OK — ξεκινά αρχικοποίηση ELM327…');
-    await obdInitSequence();
-    obdConnected = true;
-    setObdBtnState('connected', '🔌');
-    obdLog('Ξεκινά ερώτημα RPM (010C) κάθε 250ms…');
-    rpmAlertState.prev = null;
-    obdPollLoop();
+    obdDevice.addEventListener('gattserverdisconnected', obdOnDisconnected);
+    obdWanted = true;
+    localStorage.setItem('pedalGuideObdAuto', obdDevice.id);
+    obdSetupInProgress = true;
+    try { await obdSetupGatt(); } finally { obdSetupInProgress = false; }
   } catch (err) {
     obdLog('ΣΦΑΛΜΑ: ' + (err && err.message ? err.message : err));
     console.error('OBD connect error:', err);
-    setObdBtnState('error', '⚠️');
+    if (obdWanted) {
+      // Η συσκευή επιλέχθηκε αλλά δεν απάντησε (π.χ. κλειστός διακόπτης) — συνεχίζει να προσπαθεί μόνο του
+      try { if (obdDevice && obdDevice.gatt.connected) obdDevice.gatt.disconnect(); } catch (_) {}
+      setObdBtnState('connecting', '⏳');
+      obdScheduleReconnect(4000);
+    } else if (err && err.name === 'NotFoundError') {
+      setObdBtnState('', '🔌');   // ακυρώθηκε το παράθυρο επιλογής
+    } else {
+      setObdBtnState('error', '⚠️');
+    }
   }
 };
 
@@ -1634,7 +1723,7 @@ window.startRole = function(r) {
     ensureAudio();
     try { speechSynthesis.speak(new SpeechSynthesisUtterance('')); } catch (e) {}
   }
-  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); updateHandbrakeUI('t', state.handbrake); }
+  if (r === 'teacher') { updateTeacherSoundBtn(); applyPedalVisibility(state.visible, 't'); updatePedalToggleButtons(); updateHandbrakeUI('t', state.handbrake); obdAutoConnectOnStart(); }
   if (!db) return;
   if (r === 'teacher') { renderTeacher(); startTeacher(); }
   else startStudent();
