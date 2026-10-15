@@ -1332,7 +1332,7 @@ function loadRpmAlerts() {
   return { lowOn: true, low: 900, highOn: true, high: 3000 };
 }
 const RPM_ALERTS = loadRpmAlerts();
-const RPM_ALERT_HYST = 150;       // πρέπει να απομακρυνθούν τόσες στροφές από το όριο για να «οπλίσει» ξανά
+const RPM_ALERT_HYST = 50;        // πρέπει να απομακρυνθούν τόσες στροφές από το όριο για να «οπλίσει» ξανά
 const RPM_ALERT_COOLDOWN = 1500;  // ms ελάχιστο διάστημα ανάμεσα σε δύο ίδιες ειδοποιήσεις
 const rpmAlertState = { lowArmed: true, highArmed: true, lastLow: 0, lastHigh: 0, prev: null };
 const rpmCustomBuffers = { low: null, high: null };
