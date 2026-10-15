@@ -279,6 +279,7 @@ window.FIREBASE_CONFIG = {
       <button class="gearBtn" data-pedal="rpm" onpointerdown="togglePedalVisible('rpm')">Στροφές</button>
       <button class="gearBtn" data-pedal="throttle" onpointerdown="togglePedalVisible('throttle')">Γκάζι Σχετ.</button>
       <button class="gearBtn" data-pedal="throttleAbs" onpointerdown="togglePedalVisible('throttleAbs')">Γκάζι Απόλ.</button>
+      <button class="gearBtn" data-pedal="gear" onpointerdown="togglePedalVisible('gear')">Ταχύτητες</button>
     </div>
     </div>
     <div class="settingsCard" style="--accent:var(--clutch);">
@@ -524,7 +525,7 @@ window.FIREBASE_CONFIG = {
     </div>
   </div>
   <div id="hint">Σύρε πάνω/κάτω μέσα στην μπάρα · η τιμή μένει όταν αφήσεις το δάχτυλο</div>
-  <div class="gearWrapLabel">ΤΑΧΥΤΗΤΑ</div>
+  <div class="gearWrapLabel" id="tGearLabel">ΤΑΧΥΤΗΤΑ</div>
   <div class="gearRow" id="tGearRow">
     <button class="gearBtn" data-gear="Ν" onpointerdown="setGear('Ν')">Ν</button>
     <button class="gearBtn" data-gear="1" onpointerdown="setGear('1')">1</button>
@@ -556,7 +557,7 @@ window.FIREBASE_CONFIG = {
       <button onpointerdown="toggleFullscreen()">Πλήρης οθόνη</button>
     </span>
   </div>
-  <div class="gearWrap">
+  <div class="gearWrap" id="sGearWrap">
     <div class="gearLabel">ΤΑΧΥΤΗΤΑ</div>
     <div class="gearValue" id="sGearVal">Ν</div>
   </div>
@@ -836,13 +837,13 @@ const ROOM = 'webrtc-pedals';   // collection στο Firestore
 
 // ---------- Κατάσταση ----------
 function loadVisiblePedals() {
-  let result = { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: false, throttleAbs: false };
+  let result = { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: false, throttleAbs: false, gear: true };
   try {
     const saved = JSON.parse(localStorage.getItem('pedalGuideVisiblePedals'));
     if (saved && typeof saved === 'object') {
       result = { gas: saved.gas !== false, brake: saved.brake !== false, clutch: saved.clutch !== false,
         handbrake: saved.handbrake !== false, rpm: saved.rpm !== false, throttle: saved.throttle === true,
-        throttleAbs: saved.throttleAbs === true };
+        throttleAbs: saved.throttleAbs === true, gear: saved.gear !== false };
     }
   } catch (e) {}
   const barKeys = ['gas', 'brake', 'clutch', 'rpm', 'throttle', 'throttleAbs'];
@@ -868,6 +869,8 @@ function applyPedalVisibility(vis, prefix) {
   const screenId = prefix === 't' ? 'teacherScreen' : 'studentScreen';
   const hbFloat = document.querySelector('#' + screenId + ' .handbrakeFloat');
   if (hbFloat) hbFloat.style.display = vis.handbrake === false ? 'none' : '';
+  const gearIds = prefix === 't' ? ['tGearLabel', 'tGearRow'] : ['sGearWrap'];   // ταχύτητες: δεν μετράνε στο όριο των 4 στηλών
+  gearIds.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = vis.gear === false ? 'none' : ''; });
 }
 function updatePedalToggleButtons() {
   document.querySelectorAll('#tPedalSettingsPanel .gearBtn').forEach(btn => {
@@ -1842,7 +1845,7 @@ function startStudent() {
         try {
           const v = JSON.parse(ev.data);
           teacherAlertsOn = v.alertsOn !== false;
-          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: true, throttleAbs: true }, 's');
+          applyPedalVisibility(v.visible || { gas: true, brake: true, clutch: true, handbrake: true, rpm: true, throttle: true, throttleAbs: true, gear: true }, 's');
           if (typeof v.clutchZoneLow === 'number' && typeof v.clutchZoneHigh === 'number' &&
               (v.clutchZoneLow !== CLUTCH_ZONE_LOW || v.clutchZoneHigh !== CLUTCH_ZONE_HIGH)) {
             CLUTCH_ZONE_LOW = v.clutchZoneLow; CLUTCH_ZONE_HIGH = v.clutchZoneHigh;
