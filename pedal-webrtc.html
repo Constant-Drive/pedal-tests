@@ -92,9 +92,11 @@
     padding:2px 14px 4px; letter-spacing:.3px; }
   .settingsCard .gearWrapLabel { text-align:left; padding:10px 14px 2px; font-size:10.5px; }
   .settingsCard .gearRow { border-top:0; }
-  .rpmAlertRow .czLabel { flex:0 0 70px; width:auto; white-space:nowrap; }
-  .rpmAlertToggle { min-width:48px; height:34px; border-radius:10px; border:1px solid var(--line);
-    background:var(--panel); color:var(--muted); font-size:12px; font-weight:700; margin-left:auto; }
+  .rpmAlertRow { gap:6px; }
+  .rpmAlertRow .czLabel { flex:0 0 62px; width:auto; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .rpmAlertRow .stepBtn + .czValInput { flex:1 1 0; width:auto; min-width:44px; }   /* η τιμή ανάμεσα σε −/+ μικραίνει όσο χρειάζεται */
+  .rpmAlertToggle { flex:0 0 auto; min-width:44px; height:34px; padding:0 6px; border-radius:10px;
+    border:1px solid var(--line); background:var(--panel); color:var(--muted); font-size:12px; font-weight:700; }
   .rpmAlertToggle.on { background:#1f4a2c; border-color:#2f8f52; color:#8be3a4; }
   .rpmSoundRow { display:flex; align-items:center; gap:8px; padding:2px 14px 10px; }
   .rpmSoundName { flex:1; min-width:0; font-size:12px; color:var(--muted);
@@ -198,6 +200,11 @@
   .clutchZoneRow { display:flex; align-items:center; gap:10px; padding:6px 14px; }
   .czLabel { font-size:13px; color:var(--muted); width:34px; flex:0 0 auto; }
   .czVal { font-size:15px; font-weight:700; min-width:42px; text-align:center; flex:0 0 auto; }
+  input { user-select:text; -webkit-user-select:text; touch-action:manipulation; }
+  .czValInput { width:64px; height:34px; flex:0 0 auto; text-align:center; font-size:15px; font-weight:700;
+    color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:8px; }
+  .czValInput:focus { outline:none; border-color:#5b9bd9; }
+  .rpmStepUnit { font-size:12px; color:var(--muted); }
   .stepBtn { width:34px; height:34px; border-radius:10px; border:1px solid var(--line);
     background:var(--panel); color:var(--text); font-size:18px; font-weight:700; cursor:pointer; flex:0 0 auto; }
   .stepBtn:active { background:#232b34; }
@@ -428,10 +435,15 @@ window.FIREBASE_CONFIG = {
     <div class="gearWrapLabel">ΗΧΗΤΙΚΗ ΕΙΔΟΠΟΙΗΣΗ</div>
     <div class="clutchZoneRow rpmAlertRow">
       <span class="czLabel">Κάτω από</span>
-      <button class="stepBtn" onpointerdown="adjustRpmAlert('low',-50)">−</button>
-      <span class="czVal" id="rpmAlertLowVal">900</span>
-      <button class="stepBtn" onpointerdown="adjustRpmAlert('low',50)">+</button>
+      <button class="stepBtn" onpointerdown="adjustRpmAlert('low',-1)">−</button>
+      <input type="text" inputmode="numeric" class="czValInput" id="rpmAlertLowVal" value="900" maxlength="4" onfocus="this.select()" onchange="setRpmAlertValue('low', this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <button class="stepBtn" onpointerdown="adjustRpmAlert('low',1)">+</button>
       <button class="rpmAlertToggle" id="rpmAlertLowToggle" onpointerdown="toggleRpmAlert('low')">ON</button>
+    </div>
+    <div class="clutchZoneRow rpmAlertRow">
+      <span class="czLabel">Βήμα ±</span>
+      <input type="text" inputmode="numeric" class="czValInput" id="rpmAlertLowStep" value="50" maxlength="4" onfocus="this.select()" onchange="setRpmAlertStep('low', this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <span class="rpmStepUnit">στροφές</span>
     </div>
     <div class="rpmSoundRow">
       <span class="rpmSoundName" id="rpmSoundLowName">Ήχος: προεπιλογή</span>
@@ -442,10 +454,15 @@ window.FIREBASE_CONFIG = {
     </div>
     <div class="clutchZoneRow rpmAlertRow">
       <span class="czLabel">Πάνω από</span>
-      <button class="stepBtn" onpointerdown="adjustRpmAlert('high',-100)">−</button>
-      <span class="czVal" id="rpmAlertHighVal">3000</span>
-      <button class="stepBtn" onpointerdown="adjustRpmAlert('high',100)">+</button>
+      <button class="stepBtn" onpointerdown="adjustRpmAlert('high',-1)">−</button>
+      <input type="text" inputmode="numeric" class="czValInput" id="rpmAlertHighVal" value="3000" maxlength="4" onfocus="this.select()" onchange="setRpmAlertValue('high', this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <button class="stepBtn" onpointerdown="adjustRpmAlert('high',1)">+</button>
       <button class="rpmAlertToggle" id="rpmAlertHighToggle" onpointerdown="toggleRpmAlert('high')">ON</button>
+    </div>
+    <div class="clutchZoneRow rpmAlertRow">
+      <span class="czLabel">Βήμα ±</span>
+      <input type="text" inputmode="numeric" class="czValInput" id="rpmAlertHighStep" value="100" maxlength="4" onfocus="this.select()" onchange="setRpmAlertStep('high', this)" onkeydown="if(event.key==='Enter')this.blur()">
+      <span class="rpmStepUnit">στροφές</span>
     </div>
     <div class="rpmSoundRow">
       <span class="rpmSoundName" id="rpmSoundHighName">Ήχος: προεπιλογή</span>
@@ -1327,9 +1344,11 @@ function loadRpmAlerts() {
   try {
     const s = JSON.parse(localStorage.getItem('pedalGuideRpmAlerts'));
     if (s && typeof s.low === 'number' && typeof s.high === 'number')
-      return { lowOn: s.lowOn !== false, low: s.low, highOn: s.highOn !== false, high: s.high };
+      return { lowOn: s.lowOn !== false, low: s.low, highOn: s.highOn !== false, high: s.high,
+        lowStep: typeof s.lowStep === 'number' ? s.lowStep : 50,
+        highStep: typeof s.highStep === 'number' ? s.highStep : 100 };
   } catch (e) {}
-  return { lowOn: true, low: 900, highOn: true, high: 3000 };
+  return { lowOn: true, low: 900, highOn: true, high: 3000, lowStep: 50, highStep: 100 };
 }
 const RPM_ALERTS = loadRpmAlerts();
 const RPM_ALERT_HYST = 50;        // πρέπει να απομακρυνθούν τόσες στροφές από το όριο για να «οπλίσει» ξανά
@@ -1340,8 +1359,11 @@ const RPM_SOUND_MAX_BYTES = 1.5 * 1024 * 1024;
 
 function saveRpmAlerts() { localStorage.setItem('pedalGuideRpmAlerts', JSON.stringify(RPM_ALERTS)); }
 function refreshRpmAlertUI() {
-  document.getElementById('rpmAlertLowVal').textContent = RPM_ALERTS.low;
-  document.getElementById('rpmAlertHighVal').textContent = RPM_ALERTS.high;
+  const setField = (id, v) => { const el = document.getElementById(id); if (el && document.activeElement !== el) el.value = v; };
+  setField('rpmAlertLowVal', RPM_ALERTS.low);
+  setField('rpmAlertHighVal', RPM_ALERTS.high);
+  setField('rpmAlertLowStep', RPM_ALERTS.lowStep);
+  setField('rpmAlertHighStep', RPM_ALERTS.highStep);
   [['low', 'Low'], ['high', 'High']].forEach(([w, W]) => {
     const btn = document.getElementById('rpmAlert' + W + 'Toggle');
     const on = RPM_ALERTS[w + 'On'];
@@ -1349,10 +1371,31 @@ function refreshRpmAlertUI() {
     btn.textContent = on ? 'ON' : 'OFF';
   });
 }
-window.adjustRpmAlert = function(which, delta) {
-  if (which === 'low') RPM_ALERTS.low = Math.max(300, Math.min(RPM_ALERTS.high - 200, RPM_ALERTS.low + delta));
-  else RPM_ALERTS.high = Math.max(RPM_ALERTS.low + 200, Math.min(7000, RPM_ALERTS.high + delta));
+const RPM_ALERT_MIN_GAP = 50;   // το χαμηλό όριο μένει πάντα τουλάχιστον τόσο κάτω από το υψηλό
+function clampRpmAlerts(changed) {
+  RPM_ALERTS.low = Math.round(Math.max(300, Math.min(7000 - RPM_ALERT_MIN_GAP, RPM_ALERTS.low)));
+  RPM_ALERTS.high = Math.round(Math.max(300 + RPM_ALERT_MIN_GAP, Math.min(7000, RPM_ALERTS.high)));
+  if (RPM_ALERTS.high - RPM_ALERTS.low < RPM_ALERT_MIN_GAP) {
+    if (changed === 'low') RPM_ALERTS.low = RPM_ALERTS.high - RPM_ALERT_MIN_GAP;
+    else RPM_ALERTS.high = RPM_ALERTS.low + RPM_ALERT_MIN_GAP;
+  }
+}
+window.adjustRpmAlert = function(which, dir) {   // dir = +1 / -1, πολλαπλασιάζεται με το βήμα του χρήστη
+  RPM_ALERTS[which] += dir * RPM_ALERTS[which + 'Step'];
+  clampRpmAlerts(which);
   saveRpmAlerts();
+  refreshRpmAlertUI();
+};
+window.setRpmAlertValue = function(which, input) {   // πληκτρολογημένη τιμή
+  const v = parseInt(String(input.value).replace(/\D/g, ''), 10);
+  if (!isNaN(v)) { RPM_ALERTS[which] = v; clampRpmAlerts(which); saveRpmAlerts(); }
+  input.blur();
+  refreshRpmAlertUI();   // δείχνει την τελική (ίσως διορθωμένη) τιμή, ή επαναφέρει την προηγούμενη αν ήταν άκυρη
+};
+window.setRpmAlertStep = function(which, input) {
+  const v = parseInt(String(input.value).replace(/\D/g, ''), 10);
+  if (!isNaN(v)) { RPM_ALERTS[which + 'Step'] = Math.max(10, Math.min(1000, v)); saveRpmAlerts(); }
+  input.blur();
   refreshRpmAlertUI();
 };
 window.toggleRpmAlert = function(which) {
