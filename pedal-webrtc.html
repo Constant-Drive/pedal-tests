@@ -871,6 +871,10 @@ function applyPedalVisibility(vis, prefix) {
   if (hbFloat) hbFloat.style.display = vis.handbrake === false ? 'none' : '';
   const gearIds = prefix === 't' ? ['tGearLabel', 'tGearRow'] : ['sGearWrap'];   // ταχύτητες: δεν μετράνε στο όριο των 4 στηλών
   gearIds.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = vis.gear === false ? 'none' : ''; });
+  if (prefix === 't') {   // η υπόδειξη συρσίματος εμφανίζεται όταν είναι ορατή τουλάχιστον μία μπάρα που σύρεται
+    const hint = document.getElementById('hint');
+    if (hint) hint.style.display = (vis.clutch || vis.gas || vis.brake) ? '' : 'none';
+  }
 }
 function updatePedalToggleButtons() {
   document.querySelectorAll('#tPedalSettingsPanel .gearBtn').forEach(btn => {
